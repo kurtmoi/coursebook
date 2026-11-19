@@ -149,6 +149,10 @@ body.readonly .actlayout{grid-template-columns:minmax(0,1fr)}
 .formbtns{display:flex;gap:8px}
 .formbtns .btn{flex:1}
 form.panel.editing{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-soft)}
+#sec-activities > p.lede{max-width:none}
+.afilters{display:flex;flex-direction:column;gap:10px;border-top:1px solid var(--line);padding-top:16px;margin-top:16px}
+.afilters h3{margin:0;font:600 .78rem var(--f-body);text-transform:uppercase;letter-spacing:.07em;color:var(--muted)}
+.fnote{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;padding:10px 16px;font-size:.84rem;color:var(--muted)}
 #pie{width:100%;max-width:220px;height:auto;display:block;margin:0 auto}
 #pie [data-v]{cursor:pointer;transition:opacity .15s}
 #pie.focus [data-v]:not(.on){opacity:.3}
@@ -289,6 +293,16 @@ body.readonly .grid{grid-template-columns:minmax(0,1fr)}
           <button data-act="sfilter" data-v="ongoing"><i style="background:var(--warn)"></i><span>Ongoing</span><span class="cnt" data-c>0 tasks</span><span class="pc" data-p>0%</span></button>
           <button data-act="sfilter" data-v="notcomplete"><i style="background:var(--bad)"></i><span>Not Started</span><span class="cnt" data-c>0 tasks</span><span class="pc" data-p>0%</span></button>
         </div>
+        <form class="afilters" id="a-filters" autocomplete="off" role="search">
+          <h3>Find activities</h3>
+          <label for="af-subject">Subject<select id="af-subject"><option value="">All subjects</option></select></label>
+          <label for="af-name">Activity name<input id="af-name" type="search" maxlength="140" placeholder="Search titles and notes"></label>
+          <div class="dates">
+            <label for="af-from">From<input id="af-from" type="date"></label>
+            <label for="af-to">To<input id="af-to" type="date"></label>
+          </div>
+          <div class="formbtns"><button class="btn" type="submit">Apply</button><button type="button" class="ghost" id="af-clear">Clear</button></div>
+        </form>
       </div>
     </div>
       <form class="panel w" id="f-activity" autocomplete="off">
@@ -614,6 +628,22 @@ function drawPie(n,total){
   });
   svg.innerHTML=shapes+labels;
 }
+/* activity search */
+let af={subject:"",name:"",from:"",to:""};
+const afActive=()=>!!(af.subject||af.name||af.from||af.to);
+function afPass(a){
+  if(af.subject && a.subjectId!==af.subject) return false;
+  if(af.name && !(String(a.title||"")+" "+String(a.notes||"")).toLowerCase().includes(af.name.toLowerCase())) return false;
+  if(af.from||af.to){
+    const s=a.start||a.end||a.due, e=a.end||a.due||a.start;
+    if(!s) return false;
+    if(af.to && s>af.to) return false;
+    if(af.from && e<af.from) return false;
+  }
+  return true;
+}
+const afNote=n=>afActive()?`<div class="fnote"><span>${n} matching activit${n===1?"y":"ies"}</span><button class="ghost" data-act="afclear">Clear search</button></div>`:"";
+function clearAF(){ af={subject:"",name:"",from:"",to:""}; $("#a-filters").reset(); renderActivities(); }
 const statusSeg = a => `<div class="seg w" role="group" aria-label="Change marking">${Object.entries(ST).map(([v,o])=>`<button data-act="status" data-id="${esc(a.id)}" data-v="${v}" class="${v}" aria-pressed="${st(a)===v}">${o.t}</button>`).join("")}</div>`;
 const linkA = (url,text) => { const u=safeUrl(url); return u ? `<a href="${esc(u)}" target="_blank" rel="noopener noreferrer">${esc(text)}</a>` : esc(text); };
 function renderActivities(){
@@ -631,7 +661,7 @@ function renderActivities(){
     b.querySelector("[data-p]").textContent = v==="all" ? (total?"100%":"0%") : pct(v)+"%";
   });
   const order={ongoing:0,notcomplete:1,submitted:2};
-  const list=all.filter(a=>sfilter==="all"||st(a)===sfilter)
+  const list=all.filter(a=>sfilter==="all"||st(a)===sfilter).filter(afPass)
     .sort((a,b)=>order[st(a)]-order[st(b)] || (a.end||a.due||"9999").localeCompare(b.end||b.due||"9999"));
   const rows=list.map(a=>{
     const s=st(a), dl=a.end||a.due, d=dueInfo(dl), id=esc(a.id);
@@ -655,7 +685,7 @@ function renderActivities(){
       </div>`:""}
     </div><div class="actions">${statusSeg(a)}<button class="ghost w" data-act="edit" data-id="${id}">Edit</button>${delBtn("activities",a.id)}</div></div>`;
   }).join("");
-  setList("list-activities", rows || (isLoading("activities") ? empty("Loading activities…","") :
+  setList("list-activities", rows ? afNote(list.length)+rows : afActive() && all.length ? empty("No matching activities","Change the search, or press Clear to see everything.") : (isLoading("activities") ? empty("Loading activities…","") :
     !state.subjects.length ? empty("No activities yet","Add a subject first, then add its activities here.") :
     sfilter!=="all" ? empty(`No ${ST[sfilter].t} activities`,"Choose another marking in the legend, or add an activity with the form.") :
     empty("No activities yet","Add homework, a project or an exam with the form.")));
@@ -739,6 +769,9 @@ function fillSelects(){
   f.innerHTML=`<option value="">All subjects</option>`+opts;
   if(filter && !subs.some(s=>s.id===filter) && loaded.subjects) filter="";
   f.value=filter;
+  const afs=$("#af-subject"), afv=afs.value;
+  afs.innerHTML=`<option value="">All subjects</option>`+opts;
+  if(subs.some(s=>s.id===afv)) afs.value=afv;
   [["#c-subject","#c-activity"],["#r-subject","#r-activity"],["#l-subject","#l-activity"]].forEach(([sq,aq])=>{
     const cs=$(sq).value, ca=$(aq), cv=ca.value;
     ca.innerHTML=`<option value="">General</option>`+state.activities.filter(a=>a.subjectId===cs).map(a=>`<option value="${esc(a.id)}">${esc(a.title)}</option>`).join("");
@@ -812,6 +845,14 @@ function startEdit(id){
   f.classList.add("editing"); $("#a-head").textContent="Edit activity"; $("#a-submit").textContent="Save changes"; $("#a-cancel").hidden=false;
   f.scrollIntoView({behavior:"smooth",block:"start"}); setTimeout(()=>f.elements.title.focus({preventScroll:true}),300);
 }
+$("#a-filters").addEventListener("submit",e=>{ e.preventDefault();
+  const from=$("#af-from").value, to=$("#af-to").value;
+  if(from && to && to<from){ toast("The To date is before the From date. Fix one of them."); $("#af-to").focus(); return; }
+  af={subject:$("#af-subject").value,name:$("#af-name").value.trim(),from,to};
+  renderActivities();
+  if(matchMedia("(max-width:760px)").matches) $("#list-activities").scrollIntoView({behavior:"smooth",block:"start"});
+});
+$("#af-clear").addEventListener("click",clearAF);
 $("#a-cancel").addEventListener("click",()=>{ resetActivityForm(); toast("Edit cancelled"); });
 $("#f-activity").addEventListener("submit",async e=>{ e.preventDefault(); const f=e.target;
   const title=val(f,"title"), subjectId=val(f,"subjectId"); if(!title||!subjectId) return;
@@ -1058,6 +1099,7 @@ document.addEventListener("click",e=>{
   }
   else if(act==="sfilter"){ setSFilter(b.dataset.v); }
   else if(act==="edit"){ startEdit(id); }
+  else if(act==="afclear"){ clearAF(); }
   else if(act==="addlink"){
     const a=state.activities.find(x=>x.id===id); if(!a) return;
     if(subj(a.subjectId)) $("#l-subject").value=a.subjectId;
