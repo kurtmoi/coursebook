@@ -299,14 +299,6 @@ body.readonly .grid{grid-template-columns:minmax(0,1fr)}
 </header>
 
 <main class="wrap">
-  <form class="gfilter" id="gfilter" autocomplete="off" role="search">
-    <span class="gf-title">Filters</span>
-    <label for="filter">Subject<select id="filter"><option value="">All subjects</option></select></label>
-    <label for="gf-from">From<input id="gf-from" type="date"></label>
-    <label for="gf-to">To<input id="gf-to" type="date"></label>
-    <div class="formbtns"><button class="btn" type="submit">Apply</button><button type="button" class="ghost" id="gf-clear">Clear</button></div>
-    <span class="gf-note" id="gf-note"></span>
-  </form>
   <section id="sec-subjects" data-sec="subjects">
     <h2>Subjects</h2>
     <p class="lede">Every activity, link and comment belongs to a subject. Pick a color so each one is easy to spot across the app.</p>
@@ -486,6 +478,14 @@ body.readonly .grid{grid-template-columns:minmax(0,1fr)}
     </div>
     <div id="pm-body" hidden>
       <div class="pmbar"><span class="hint">Unlocked. Leaving this tab locks it again.</span><button type="button" class="ghost" id="pm-change">Change code</button><button type="button" class="ghost" id="pm-lockbtn">Lock</button></div>
+      <form class="gfilter" id="gfilter" autocomplete="off" role="search">
+        <span class="gf-title">Filter the overview and journal</span>
+        <label for="filter">Subject<select id="filter"><option value="">All subjects</option></select></label>
+        <label for="gf-from">From<input id="gf-from" type="date"></label>
+        <label for="gf-to">To<input id="gf-to" type="date"></label>
+        <div class="formbtns"><button class="btn" type="submit">Apply</button><button type="button" class="ghost" id="gf-clear">Clear</button></div>
+        <span class="gf-note" id="gf-note"></span>
+      </form>
       <div class="pmstats" id="pm-stats"></div>
       <div class="pmgrid">
         <div class="pmcard"><h3>Needs attention</h3><div id="pm-attn"></div></div>
@@ -596,7 +596,8 @@ function itemDates(x){
   return null;
 }
 const inRange = x => { if(!gFrom&&!gTo) return true; const r=itemDates(x); if(!r) return false; if(gTo&&r[0]>gTo) return false; if(gFrom&&r[1]<gFrom) return false; return true; };
-const pass = x => (!filter || x.subjectId === filter) && inRange(x);
+const pmPass = x => (!filter || x.subjectId === filter) && inRange(x);
+const pass = () => true;
 function parseDay(d){ const [y,m,dd]=String(d).split("-").map(Number); return new Date(y,(m||1)-1,dd||1); }
 const fmtDay = dt => dt.toLocaleDateString(undefined,{weekday:"short",month:"short",day:"numeric"});
 const fmtTime = ms => new Date(ms).toLocaleDateString(undefined,{month:"short",day:"numeric",year:"numeric"});
@@ -1450,7 +1451,7 @@ function fillJournalSelects(){
 $("#j-subject").addEventListener("change",fillJournalSelects);
 function renderParents(){
   if(!pmUnlocked||pmMode==="change") return;
-  const acts=state.activities.filter(pass);
+  const acts=state.activities.filter(pmPass);
   const n={notcomplete:0,ongoing:0,submitted:0}; acts.forEach(a=>n[st(a)]++);
   const today=todayStr(), dl=a=>a.end||a.due||"";
   const overdue=acts.filter(a=>st(a)!=="submitted"&&dl(a)&&dl(a)<today);
@@ -1465,7 +1466,7 @@ function renderParents(){
   const rec=acts.filter(a=>st(a)==="submitted").sort((a,b)=>(b.submittedAt||0)-(a.submittedAt||0)).slice(0,5);
   $("#pm-recent").innerHTML=rec.length?rec.map(a=>{ let p=""; if(dl(a)&&a.submittedAt){ const e=parseDay(dl(a)); e.setHours(23,59,59,999); p=a.submittedAt<=e.getTime()?`<span class="pill ok">On time</span>`:`<span class="pill bad">Late</span>`; } return item(a,`${p}<span class="mono">${a.submittedAt?fmtTime(a.submittedAt):""}</span>${a.grade?`<span class="pill muted">Grade ${esc(a.grade)}</span>`:""}`); }).join(""):`<p class="hint">No submitted activities yet.</p>`;
   fillJournalSelects();
-  const list=[...state.journal].sort((a,b)=>String(b.date||"").localeCompare(String(a.date||""))||(b.createdAt||0)-(a.createdAt||0));
+  const list=state.journal.filter(pmPass).sort((a,b)=>String(b.date||"").localeCompare(String(a.date||""))||(b.createdAt||0)-(a.createdAt||0));
   const rows=list.map(j=>{
     const act=j.activityId&&state.activities.find(a=>a.id===j.activityId);
     const sub=j.subjectId&&subj(j.subjectId)?chip(j.subjectId):j.subjectText?`<span class="chip"><i style="background:var(--muted)"></i>${esc(j.subjectText)}</span>`:"";
