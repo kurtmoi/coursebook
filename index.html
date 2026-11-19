@@ -179,6 +179,15 @@ form.panel.editing{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-
 .pmitem:first-child{border-top:0;padding-top:0}
 .pmitem-t{font-weight:600;overflow-wrap:anywhere}
 #j-text{min-height:120px}
+#sec-parents > p.lede{max-width:none}
+.gfilter{display:flex;flex-wrap:wrap;gap:10px 14px;align-items:flex-end;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:12px 16px;margin-bottom:22px}
+.gfilter label{flex:1 1 160px;min-width:0}
+.gfilter .formbtns{flex:0 0 auto}
+.gf-title{width:100%;font:600 .78rem var(--f-body);text-transform:uppercase;letter-spacing:.07em;color:var(--muted)}
+.gf-note{width:100%;font-size:.84rem;color:var(--accent);font-weight:500}
+.gf-note:empty{display:none}
+.gfilter select,.gfilter input{height:42px}
+#xl-btn{padding:6px 12px;font-size:.82rem}
 .brand{align-items:center}
 .titleblock{display:flex;flex-direction:column;gap:3px;min-width:0}
 .owner{background:none;border:0;padding:0;text-align:left;color:var(--muted);font:500 .95rem var(--f-body);cursor:pointer;border-radius:4px}
@@ -274,10 +283,7 @@ body.readonly .grid{grid-template-columns:minmax(0,1fr)}
     <div class="top">
       <div class="brand"><div class="titleblock"><h1>School Task Monitor</h1><button type="button" class="owner" id="owner-btn" title="Change the name">of <span id="owner-name">your full name</span> <span class="pen" aria-hidden="true">✎</span></button><form class="ownerform" id="owner-form" hidden autocomplete="off"><input id="owner-input" maxlength="80" placeholder="Your full name" aria-label="Your full name"><button class="btn" type="submit">Save</button><button type="button" class="ghost" id="owner-cancel">Cancel</button></form></div><span class="status" id="status">Loading…</span></div>
       <div class="topright">
-        <label class="filter" for="filter">Showing
-          <select id="filter" style="width:auto"><option value="">All subjects</option></select>
-        </label>
-        <button type="button" class="ghost" id="xl-btn">Download Excel</button>
+        <button type="button" class="btn" id="xl-btn">Download Excel</button>
         <button type="button" class="ghost" id="install-open">Install &amp; backup</button>
       </div>
     </div>
@@ -293,6 +299,14 @@ body.readonly .grid{grid-template-columns:minmax(0,1fr)}
 </header>
 
 <main class="wrap">
+  <form class="gfilter" id="gfilter" autocomplete="off" role="search">
+    <span class="gf-title">Filters</span>
+    <label for="filter">Subject<select id="filter"><option value="">All subjects</option></select></label>
+    <label for="gf-from">From<input id="gf-from" type="date"></label>
+    <label for="gf-to">To<input id="gf-to" type="date"></label>
+    <div class="formbtns"><button class="btn" type="submit">Apply</button><button type="button" class="ghost" id="gf-clear">Clear</button></div>
+    <span class="gf-note" id="gf-note"></span>
+  </form>
   <section id="sec-subjects" data-sec="subjects">
     <h2>Subjects</h2>
     <p class="lede">Every activity, link and comment belongs to a subject. Pick a color so each one is easy to spot across the app.</p>
@@ -558,11 +572,11 @@ let assets = null, ctab = "comments", cact = "";
 try { const v=localStorage.getItem("cb-ctab"); if(v==="comments" || v==="proof") ctab=v; else if(v in KINDS) ctab="proof"; } catch {}
 const KIND = {praise:{t:"Praise",k:"ok"}, note:{t:"Note",k:"muted"}, action:{t:"Action needed",k:"warn"}};
 const loaded = {};
-let db = null, user = null, myId = null, mode = "loading", filter = "";
+let db = null, user = null, myId = null, mode = "loading", filter = "", gFrom = "", gTo = "";
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 
-try { filter = localStorage.getItem("cb-filter") || ""; } catch {}
+try { filter = localStorage.getItem("cb-filter") || ""; gFrom = localStorage.getItem("cb-gfrom") || ""; gTo = localStorage.getItem("cb-gto") || ""; } catch {}
 
 /* ---------- helpers ---------- */
 let toastT;
@@ -574,7 +588,15 @@ function chip(id){
   if(!s) return `<span class="chip"><i style="background:var(--line)"></i>No subject</span>`;
   return `<span class="chip"><i style="background:var(--s${Number(s.color)%6||0})"></i>${esc(s.name)}</span>`;
 }
-const pass = x => !filter || x.subjectId === filter;
+const ymdOf = ms => { const d=new Date(ms); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; };
+function itemDates(x){
+  if(x.start||x.end||x.due) return [x.start||x.end||x.due, x.end||x.due||x.start];
+  if(x.date) return [x.date,x.date];
+  if(x.createdAt){ const d=ymdOf(x.createdAt); return [d,d]; }
+  return null;
+}
+const inRange = x => { if(!gFrom&&!gTo) return true; const r=itemDates(x); if(!r) return false; if(gTo&&r[0]>gTo) return false; if(gFrom&&r[1]<gFrom) return false; return true; };
+const pass = x => (!filter || x.subjectId === filter) && inRange(x);
 function parseDay(d){ const [y,m,dd]=String(d).split("-").map(Number); return new Date(y,(m||1)-1,dd||1); }
 const fmtDay = dt => dt.toLocaleDateString(undefined,{weekday:"short",month:"short",day:"numeric"});
 const fmtTime = ms => new Date(ms).toLocaleDateString(undefined,{month:"short",day:"numeric",year:"numeric"});
@@ -860,7 +882,7 @@ function fillSelects(){
   const f=$("#filter");
   f.innerHTML=`<option value="">All subjects</option>`+opts;
   if(filter && !subs.some(s=>s.id===filter) && loaded.subjects) filter="";
-  f.value=filter;
+  f.value=filter; gfNote();
   const afs=$("#af-subject"), afv=afs.value;
   afs.innerHTML=`<option value="">All subjects</option>`+opts;
   if(subs.some(s=>s.id===afv)) afs.value=afv;
@@ -891,7 +913,21 @@ function showTab(){
 addEventListener("hashchange",showTab);
 
 /* ---------- events ---------- */
-$("#filter").addEventListener("change",e=>{ filter=e.target.value; try{localStorage.setItem("cb-filter",filter);}catch{} render(); });
+function saveGF(){ try{ localStorage.setItem("cb-filter",filter); localStorage.setItem("cb-gfrom",gFrom); localStorage.setItem("cb-gto",gTo); }catch{} }
+function gfNote(){
+  const parts=[]; const s=filter&&subj(filter);
+  if(s) parts.push(s.name);
+  if(gFrom||gTo) parts.push(`${gFrom?fmtDay(parseDay(gFrom)):"…"} – ${gTo?fmtDay(parseDay(gTo)):"…"}`);
+  $("#gf-note").textContent=parts.length?`Showing only: ${parts.join(" · ")}`:"";
+}
+$("#gf-from").value=gFrom; $("#gf-to").value=gTo;
+$("#gfilter").addEventListener("submit",e=>{ e.preventDefault();
+  const f=$("#gf-from").value, t=$("#gf-to").value;
+  if(f&&t&&t<f){ toast("The To date is before the From date. Fix one of them."); $("#gf-to").focus(); return; }
+  filter=$("#filter").value; gFrom=f; gTo=t; saveGF(); render(); gfNote();
+  toast(filter||gFrom||gTo?"Filters applied":"Showing everything");
+});
+$("#gf-clear").addEventListener("click",()=>{ filter=""; gFrom=""; gTo=""; $("#filter").value=""; $("#gf-from").value=""; $("#gf-to").value=""; saveGF(); render(); gfNote(); toast("Filters cleared"); });
 $("#c-subject").addEventListener("change",fillSelects);
 $("#l-subject").addEventListener("change",fillSelects);
 let lrowN=0;
