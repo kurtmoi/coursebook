@@ -1,6 +1,6 @@
-/* Coursebook offline worker: keeps the app's own files on the device so it opens without internet.
+/* School Task Monitor offline worker: keeps the app's own files on the device so it opens without internet.
    Your records and attachments are not here; they live in the browser's database (IndexedDB). */
-const VERSION = "coursebook-v8";
+const VERSION = "coursebook-v9";
 const FONTS = "coursebook-fonts";
 const SHELL = [
   "./",

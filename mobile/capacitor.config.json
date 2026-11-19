@@ -1,6 +1,6 @@
 {
   "appId": "com.kurtmoi.coursebook",
-  "appName": "Coursebook",
+  "appName": "School Task Monitor",
   "webDir": "www",
   "android": {
     "adjustMarginsForEdgeToEdge": "auto"

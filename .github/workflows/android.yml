@@ -55,20 +55,20 @@ jobs:
           ./gradlew assembleDebug --no-daemon
 
       - name: Name the APK
-        run: cp android/app/build/outputs/apk/debug/app-debug.apk ../Coursebook.apk
+        run: cp android/app/build/outputs/apk/debug/app-debug.apk ../School-Task-Monitor.apk
 
       - uses: actions/upload-artifact@v4
         with:
-          name: Coursebook-android
-          path: Coursebook.apk
+          name: School-Task-Monitor-android
+          path: School-Task-Monitor.apk
 
       - name: Publish a release with the APK
         uses: softprops/action-gh-release@v2
         with:
           tag_name: android-build-${{ github.run_number }}
-          name: Coursebook for Android (build ${{ github.run_number }})
+          name: School Task Monitor for Android (build ${{ github.run_number }})
           body: |
-            Download **Coursebook.apk** on your Android phone and open it to install.
+            Download **School-Task-Monitor.apk** on your Android phone and open it to install.
             If Android asks, allow your browser or Files app to install unknown apps.
             Everything you add is saved in the phone's storage and works offline.
-          files: Coursebook.apk
+          files: School-Task-Monitor.apk

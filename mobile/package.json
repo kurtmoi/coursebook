@@ -2,7 +2,7 @@
   "name": "coursebook-mobile",
   "version": "1.0.0",
   "private": true,
-  "description": "Native Android shell for Coursebook, built with Capacitor.",
+  "description": "Native Android shell for School Task Monitor, built with Capacitor.",
   "scripts": {
     "copy-web": "rm -rf www && mkdir -p www && cp ../index.html ../manifest.webmanifest www/ && cp -r ../icons www/icons",
     "icons": "capacitor-assets generate --android --iconBackgroundColor '#2f5bd3' --iconBackgroundColorDark '#2f5bd3' --splashBackgroundColor '#2f5bd3' --splashBackgroundColorDark '#2f5bd3'"

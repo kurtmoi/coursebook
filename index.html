@@ -3,13 +3,13 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Coursebook</title>
+<title>School Task Monitor</title>
 <meta name="description" content="Track subjects, activities, links, comments and teacher remarks. Works offline and saves on your device.">
 <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#191e28" media="(prefers-color-scheme: dark)">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="Coursebook">
+<meta name="apple-mobile-web-app-title" content="Task Monitor">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
@@ -151,6 +151,15 @@ body.readonly .actlayout{grid-template-columns:minmax(0,1fr)}
 form.panel.editing{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-soft)}
 #sec-activities > p.lede{max-width:none}
 #a-notes{min-height:126px}
+.brand{align-items:center}
+.titleblock{display:flex;flex-direction:column;gap:3px;min-width:0}
+.owner{background:none;border:0;padding:0;text-align:left;color:var(--muted);font:500 .95rem var(--f-body);cursor:pointer;border-radius:4px}
+.owner #owner-name{color:var(--ink);font-weight:600}
+.owner.empty #owner-name{color:var(--accent);font-weight:500;text-decoration:underline}
+.owner .pen{font-size:.8rem;color:var(--muted)}
+.ownerform{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.ownerform input{width:auto;flex:1 1 200px}
+.ownerform .btn,.ownerform .ghost{padding:6px 12px}
 .row .acts2{flex-direction:column;align-items:flex-end;gap:6px}
 .actrow{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
 @container (max-width:620px){ .row .acts2{align-items:flex-start} .actrow{justify-content:flex-start} }
@@ -235,7 +244,7 @@ body.readonly .grid{grid-template-columns:minmax(0,1fr)}
 <header>
   <div class="wrap">
     <div class="top">
-      <div class="brand"><h1>Coursebook</h1><span class="status" id="status">Loading…</span></div>
+      <div class="brand"><div class="titleblock"><h1>School Task Monitor</h1><button type="button" class="owner" id="owner-btn" title="Change the name">of <span id="owner-name">your full name</span> <span class="pen" aria-hidden="true">✎</span></button><form class="ownerform" id="owner-form" hidden autocomplete="off"><input id="owner-input" maxlength="80" placeholder="Your full name" aria-label="Your full name"><button class="btn" type="submit">Save</button><button type="button" class="ghost" id="owner-cancel">Cancel</button></form></div><span class="status" id="status">Loading…</span></div>
       <div class="topright">
         <label class="filter" for="filter">Showing
           <select id="filter" style="width:auto"><option value="">All subjects</option></select>
@@ -420,10 +429,10 @@ body.readonly .grid{grid-template-columns:minmax(0,1fr)}
     <section class="sheet-sec">
       <h3>Install on this device</h3>
       <p class="note2" id="inst-state">Checking…</p>
-      <button type="button" class="btn" id="inst-btn" hidden>Install Coursebook</button>
+      <button type="button" class="btn" id="inst-btn" hidden>Install School Task Monitor</button>
       <div id="inst-ios" hidden>
         <ol>
-          <li>Open Coursebook in <strong>Safari</strong>.</li>
+          <li>Open School Task Monitor in <strong>Safari</strong>.</li>
           <li>Tap the <strong>Share</strong> button (the square with an arrow pointing up).</li>
           <li>Scroll down and tap <strong>Add to Home Screen</strong>, then tap <strong>Add</strong>.</li>
         </ol>
@@ -431,7 +440,7 @@ body.readonly .grid{grid-template-columns:minmax(0,1fr)}
       <div id="inst-other" hidden>
         <ol>
           <li><strong>Android (Chrome):</strong> tap <strong>⋮</strong>, then <strong>Install app</strong> or <strong>Add to Home screen</strong>.</li>
-          <li><strong>Computer (Chrome or Edge):</strong> click the install icon at the right end of the address bar, or open the menu and choose <strong>Install Coursebook</strong>.</li>
+          <li><strong>Computer (Chrome or Edge):</strong> click the install icon at the right end of the address bar, or open the menu and choose <strong>Install School Task Monitor</strong>.</li>
           <li><strong>Safari on Mac:</strong> choose <strong>File</strong> → <strong>Add to Dock</strong>.</li>
         </ol>
       </div>
@@ -439,7 +448,7 @@ body.readonly .grid{grid-template-columns:minmax(0,1fr)}
     <section class="sheet-sec">
       <h3>Saved on this device</h3>
       <p class="note2" id="store-state">Everything you add is saved on this device and works without internet. Nothing is uploaded.</p>
-      <p class="note2">Clearing this browser's site data, or removing the app, erases what's saved. Download a backup now and then, and use it to move Coursebook to another device.</p>
+      <p class="note2">Clearing this browser's site data, or removing the app, erases what's saved. Download a backup now and then, and use it to move School Task Monitor to another device.</p>
       <div class="copyrow">
         <button type="button" class="btn" id="bk-save">Download backup</button>
         <button type="button" class="ghost" id="bk-load">Restore from backup</button>
@@ -462,6 +471,7 @@ body.readonly .grid{grid-template-columns:minmax(0,1fr)}
 const TABS = ["subjects","activities","links","comments","remarks"];
 const COLS = ["subjects","activities","links","comments","remarks"];
 const state = {subjects:[],activities:[],links:[],comments:[],remarks:[]};
+let ownerName="";
 const todayStr = () => { const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; };
 const ST = {notcomplete:{t:"Not Started",k:"bad"}, ongoing:{t:"Ongoing",k:"warn"}, submitted:{t:"Submitted",k:"ok"}};
 const st = a => a.status==="submitted" ? "submitted" : a.status==="ongoing" ? "ongoing" : "notcomplete";
@@ -522,7 +532,7 @@ const host = u => { try{ return new URL(u).hostname.replace(/^www\./,""); }catch
 const rid = () => Math.random().toString(36).slice(2,12);
 
 /* ---------- device storage (IndexedDB) ---------- */
-const DB_NAME="coursebook", DB_VER=1, STORES=[...COLS,"files"];
+const DB_NAME="coursebook", DB_VER=2, STORES=[...COLS,"files","settings"];
 let idb=null;
 const reqP = r => new Promise((res,rej)=>{ r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error); });
 const done = t => new Promise((res,rej)=>{ t.oncomplete=()=>res(); t.onerror=()=>rej(t.error); t.onabort=()=>rej(t.error||new Error("aborted")); });
@@ -580,6 +590,8 @@ async function reloadAll(){
     fileURLs.forEach(u=>URL.revokeObjectURL(u)); fileURLs.clear();
     try{ for(const f of await idbAll("files")) if(f && f.blob) fileURLs.set(f.id,URL.createObjectURL(f.blob)); }catch{}
   }
+  if(idb){ try{ const o=(await idbAll("settings")).find(x=>x.id==="owner"); ownerName=(o&&o.value)||""; }catch{} }
+  renderOwner();
   Object.keys(lastHTML).forEach(k=>delete lastHTML[k]);
   render();
 }
@@ -905,7 +917,7 @@ function uploadErr(e){
   if(c==="unsupported_type") return "One file type isn't supported. Use JPG, PNG, GIF, WebP, MP4 or WebM.";
   if(c==="quota_or_state") return "This device is out of storage space. Remove some old attachments, then try again.";
   if(c==="rate_limited") return "Too many uploads at once. Wait a moment, then try again.";
-  if(c==="not_granted") return "Only people who can edit this Coursebook can attach files.";
+  if(c==="not_granted") return "Only people who can edit this School Task Monitor can attach files.";
   return "An attachment didn't upload. Check your connection and try again.";
 }
 function makeAttacher(prefix, noun, pasteTarget){
@@ -940,7 +952,7 @@ function makeAttacher(prefix, noun, pasteTarget){
     ui(){
       area.querySelectorAll("[data-pick]").forEach(b=>b.disabled=!assets);
       hint.textContent = assets ? `Images: JPG, PNG, GIF or WebP. Videos: MP4 or WebM. Up to 20 MB each, 10 per ${noun}.`
-        : mode==="local" ? "Attachments work on the published Coursebook." : "Only people who can edit this Coursebook can attach files.";
+        : mode==="local" ? "Attachments work on the published School Task Monitor." : "Only people who can edit this School Task Monitor can attach files.";
     },
     clear(){ pending.forEach(p=>URL.revokeObjectURL(p.url)); pending.length=0; draw(); keep=[]; removed=[]; drawKeep(); },
     discard(atts){ atts.forEach(a=>assets&&assets.delete(a.id).catch(()=>{})); },
@@ -959,7 +971,7 @@ function makeAttacher(prefix, noun, pasteTarget){
 }
 const cAtt=makeAttacher("att","comment",$("#c-text")), rAtt=makeAttacher("ratt","remark",$("#r-text"));
 function setAttUI(){ cAtt.ui(); rAtt.ui(); }
-const noPerm="Only people who can edit this Coursebook can attach files.";
+const noPerm="Only people who can edit this School Task Monitor can attach files.";
 let editC=null, editR=null;
 function resetCommentForm(){
   editC=null; const f=$("#f-comment"); f.elements.text.value=""; cAtt.clear(); f.classList.remove("editing");
@@ -1048,20 +1060,20 @@ const isIOS = /iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.
 const isStandalone = () => matchMedia("(display-mode: standalone)").matches || navigator.standalone===true;
 let deferredPrompt=null;
 addEventListener("beforeinstallprompt",e=>{ e.preventDefault(); deferredPrompt=e; refreshInstall(); });
-addEventListener("appinstalled",()=>{ deferredPrompt=null; refreshInstall(); toast("Coursebook installed"); });
+addEventListener("appinstalled",()=>{ deferredPrompt=null; refreshInstall(); toast("School Task Monitor installed"); });
 function refreshInstall(){
   const s=$("#inst-state");
   $("#inst-btn").hidden=!deferredPrompt; $("#inst-ios").hidden=true; $("#inst-other").hidden=true;
-  if(isStandalone()){ s.textContent="Coursebook is installed and running as an app on this device."; $("#inst-btn").hidden=true; return; }
-  if(location.protocol==="file:"){ s.textContent="Open Coursebook from its web address (https://…) to install it. A file opened straight from a folder can't be installed or used offline."; return; }
-  if(deferredPrompt){ s.textContent="Install Coursebook to open it from your home screen or dock, with or without internet."; return; }
+  if(isStandalone()){ s.textContent="School Task Monitor is installed and running as an app on this device."; $("#inst-btn").hidden=true; return; }
+  if(location.protocol==="file:"){ s.textContent="Open School Task Monitor from its web address (https://…) to install it. A file opened straight from a folder can't be installed or used offline."; return; }
+  if(deferredPrompt){ s.textContent="Install School Task Monitor to open it from your home screen or dock, with or without internet."; return; }
   if(isIOS){ s.textContent="On iPhone and iPad, install from Safari:"; $("#inst-ios").hidden=false; return; }
   s.textContent="Use your browser's menu to install:"; $("#inst-other").hidden=false;
 }
 $("#inst-btn").addEventListener("click",async()=>{ if(!deferredPrompt) return; deferredPrompt.prompt(); try{ await deferredPrompt.userChoice; }catch{} deferredPrompt=null; refreshInstall(); });
 const fmtMB = b => b>=1e9 ? (b/1e9).toFixed(1)+" GB" : Math.max(0.1,b/1e6).toFixed(1)+" MB";
 async function refreshStorage(){
-  let t = idb ? "Everything you add is saved on this device and works without internet. Nothing is uploaded." : "This browser is blocking storage, so changes won't be kept. Turn off private browsing and reopen Coursebook.";
+  let t = idb ? "Everything you add is saved on this device and works without internet. Nothing is uploaded." : "This browser is blocking storage, so changes won't be kept. Turn off private browsing and reopen School Task Monitor.";
   try{ if(idb && navigator.storage && navigator.storage.estimate){ const {usage,quota}=await navigator.storage.estimate(); if(quota) t+=` Using ${fmtMB(usage||0)} of about ${fmtMB(quota)} available.`; } }catch{}
   $("#store-state").textContent=t;
 }
@@ -1072,21 +1084,21 @@ const toDataURL = b => new Promise((res,rej)=>{ const r=new FileReader(); r.onlo
 async function saveNative(name,text){
   const C=window.Capacitor, FS=C.registerPlugin("Filesystem"), SH=C.registerPlugin("Share");
   let inDocs=false;
-  try{ await FS.writeFile({path:"Coursebook/"+name,data:text,directory:"DOCUMENTS",encoding:"utf8",recursive:true}); inDocs=true; }catch{}
-  try{ const w=await FS.writeFile({path:name,data:text,directory:"CACHE",encoding:"utf8"}); await SH.share({title:"Coursebook backup",url:w.uri,dialogTitle:"Save or send your backup"}); }catch{}
+  try{ await FS.writeFile({path:"School Task Monitor/"+name,data:text,directory:"DOCUMENTS",encoding:"utf8",recursive:true}); inDocs=true; }catch{}
+  try{ const w=await FS.writeFile({path:name,data:text,directory:"CACHE",encoding:"utf8"}); await SH.share({title:"School Task Monitor backup",url:w.uri,dialogTitle:"Save or send your backup"}); }catch{}
   return inDocs;
 }
 $("#bk-save").addEventListener("click",async()=>{
   if(!idb){ toast("Nothing is saved on this device to back up."); return; }
   const btn=$("#bk-save"); btn.disabled=true; btn.textContent="Preparing…";
   try{
-    const data={}; for(const c of COLS) data[c]=await idbAll(c);
+    const data={}; for(const c of COLS) data[c]=await idbAll(c); data.settings=await idbAll("settings");
     const files=[]; for(const f of await idbAll("files")) if(f && f.blob) files.push({id:f.id,type:f.type,createdAt:f.createdAt,data:await toDataURL(f.blob)});
     const out=JSON.stringify({app:"coursebook",version:1,exportedAt:new Date().toISOString(),data,files});
-    const name=`coursebook-backup-${todayStr()}.json`, nf=`${files.length} file${files.length===1?"":"s"}`;
+    const name=`school-task-monitor-backup-${todayStr()}.json`, nf=`${files.length} file${files.length===1?"":"s"}`;
     if(NATIVE){
       const inDocs=await saveNative(name,out);
-      toast(inDocs ? `Backup saved to Documents/Coursebook with ${nf}` : `Backup ready with ${nf}. Choose where to save it.`);
+      toast(inDocs ? `Backup saved to Documents/School Task Monitor with ${nf}` : `Backup ready with ${nf}. Choose where to save it.`);
     } else {
       const url=URL.createObjectURL(new Blob([out],{type:"application/json"}));
       const a=document.createElement("a"); a.href=url; a.download=name;
@@ -1109,7 +1121,7 @@ $("#bk-file").addEventListener("change",async e=>{
     const when=j.exportedAt?new Date(j.exportedAt).toLocaleString():"an unknown date";
     $("#bk-msg").textContent=`This backup from ${when} has ${pl(n("subjects"),"subject")}, ${n("activities")} ${n("activities")===1?"activity":"activities"}, ${pl(n("remarks"),"remark")} and ${pl((Array.isArray(j.files)?j.files:[]).length,"file")}. Restoring replaces everything saved on this device.`;
     $("#bk-confirm").hidden=false;
-  }catch{ toast("That file isn't a Coursebook backup."); }
+  }catch{ toast("That file isn't a School Task Monitor backup."); }
 });
 $("#bk-cancel").addEventListener("click",()=>{ pendingRestore=null; $("#bk-confirm").hidden=true; });
 $("#bk-go").addEventListener("click",async()=>{
@@ -1120,6 +1132,7 @@ $("#bk-go").addEventListener("click",async()=>{
     const t=idb.transaction(STORES,"readwrite");
     STORES.forEach(s=>t.objectStore(s).clear());
     COLS.forEach(c=>(Array.isArray(j.data[c])?j.data[c]:[]).forEach(r=>{ if(r && typeof r.id==="string") t.objectStore(c).put(r); }));
+    (Array.isArray(j.data.settings)?j.data.settings:[]).forEach(r=>{ if(r && typeof r.id==="string") t.objectStore("settings").put(r); });
     await done(t);
     for(const f of (Array.isArray(j.files)?j.files:[])){
       if(!f || typeof f.id!=="string" || typeof f.data!=="string" || !f.data.startsWith("data:")) continue;
@@ -1187,6 +1200,22 @@ document.addEventListener("change",e=>{
 });
 document.addEventListener("focusout",()=>setTimeout(()=>{ document.querySelectorAll(".list[data-stale='1']").forEach(()=>render()); },0));
 
+async function saveOwner(v){ if(idb){ try{ await idbPut("settings",{id:"owner",value:v}); bcPost(); }catch(e){ onErr(e); } } }
+/* owner name: "School Task Monitor of ..." */
+function renderOwner(){
+  $("#owner-name").textContent=ownerName||"your full name";
+  $("#owner-btn").classList.toggle("empty",!ownerName);
+  document.title=ownerName?`School Task Monitor of ${ownerName}`:"School Task Monitor";
+}
+$("#owner-btn").addEventListener("click",()=>{ $("#owner-input").value=ownerName; $("#owner-btn").hidden=true; $("#owner-form").hidden=false; $("#owner-input").focus(); });
+$("#owner-cancel").addEventListener("click",()=>{ $("#owner-form").hidden=true; $("#owner-btn").hidden=false; });
+$("#owner-form").addEventListener("submit",async e=>{ e.preventDefault();
+  const v=$("#owner-input").value.trim().replace(/\s+/g," ").slice(0,80);
+  await saveOwner(v); ownerName=v; renderOwner();
+  $("#owner-form").hidden=true; $("#owner-btn").hidden=false;
+  toast(v?`Saved: School Task Monitor of ${v}`:"Name removed");
+});
+renderOwner();
 /* ---------- boot ---------- */
 function updateNet(){ if(mode!=="device") return; setStatus(navigator.onLine ? "Saved on this device" : "Offline · saved on this device"); }
 addEventListener("online",updateNet); addEventListener("offline",updateNet);

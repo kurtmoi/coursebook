@@ -1,10 +1,10 @@
-# Coursebook (offline app)
+# School Task Monitor (offline app)
 
-Coursebook keeps track of subjects, activities, links, comments, teacher remarks and photo, screenshot and video proof. It works without internet and saves everything on the device it runs on.
+School Task Monitor keeps track of subjects, activities, links, comments, teacher remarks and photo, screenshot and video proof. It works without internet and saves everything on the device it runs on.
 
 **Open the app:** https://kurtmoi.github.io/coursebook/
 
-Coursebook is a Progressive Web App (PWA): a web app you can install on a phone, tablet or computer. It is not a native app store app.
+School Task Monitor is a Progressive Web App (PWA): a web app you can install on a phone, tablet or computer. It is not a native app store app.
 
 ## Files
 
@@ -38,11 +38,11 @@ Open the address on each device, then tap **Install & backup** in the app's head
 
 There is also a real Android app (`.apk`) built from the same code with [Capacitor](https://capacitorjs.com/).
 
-1. On your Android phone, open the **Releases** page of this repository and download the newest **Coursebook.apk**.
+1. On your Android phone, open the **Releases** page of this repository and download the newest **School-Task-Monitor.apk**.
 2. Open the downloaded file. If Android asks, allow your browser or Files app to install unknown apps.
-3. Open **Coursebook** from your home screen. It works offline and saves everything in the phone's storage.
+3. Open **School Task Monitor** from your home screen. It works offline and saves everything in the phone's storage.
 
-To move your data in, use **Backup → Restore from backup** in the app. **Backup → Download backup** saves a copy to `Documents/Coursebook` and opens the share sheet, so you can also send it to Google Drive, email or another phone.
+To move your data in, use **Backup → Restore from backup** in the app. **Backup → Download backup** saves a copy to `Documents/School Task Monitor` and opens the share sheet, so you can also send it to Google Drive, email or another phone.
 
 A new APK is built automatically by GitHub Actions (`.github/workflows/android.yml`) every time `index.html`, the icons or the `mobile/` folder change. The native project settings live in `mobile/`.
 

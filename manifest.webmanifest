@@ -1,6 +1,6 @@
 {
-  "name": "Coursebook",
-  "short_name": "Coursebook",
+  "name": "School Task Monitor",
+  "short_name": "Task Monitor",
   "description": "Track subjects, activities, links, comments and teacher remarks. Works offline and saves on your device.",
   "id": "./",
   "start_url": "./",
