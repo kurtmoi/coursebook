@@ -151,6 +151,12 @@ body.readonly .actlayout{grid-template-columns:minmax(0,1fr)}
 form.panel.editing{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-soft)}
 #sec-activities > p.lede{max-width:none}
 #a-notes{min-height:126px}
+.tpav{width:48px;height:48px;border-radius:50%;flex-shrink:0;display:grid;place-items:center;overflow:hidden;color:var(--surface);font:600 1rem var(--f-display)}
+.tpav img{width:100%;height:100%;object-fit:cover;cursor:zoom-in}
+.tprow{display:flex;gap:12px;align-items:center}
+.tpprev{width:64px;height:64px;border-radius:50%;background:var(--bg);border:1px dashed var(--line);display:grid;place-items:center;overflow:hidden;flex-shrink:0;font-size:.7rem;color:var(--muted);text-align:center}
+.tpprev img{width:100%;height:100%;object-fit:cover}
+.tpbtns{display:flex;gap:6px;flex-wrap:wrap}
 .brand{align-items:center}
 .titleblock{display:flex;flex-direction:column;gap:3px;min-width:0}
 .owner{background:none;border:0;padding:0;text-align:left;color:var(--muted);font:500 .95rem var(--f-body);cursor:pointer;border-radius:4px}
@@ -268,9 +274,14 @@ body.readonly .grid{grid-template-columns:minmax(0,1fr)}
     <p class="lede">Every activity, link and comment belongs to a subject. Pick a color so each one is easy to spot across the app.</p>
     <div class="grid">
       <form class="panel w" id="f-subject" autocomplete="off">
-        <h3>Add a subject</h3>
+        <h3 id="s-head">Add a subject</h3>
         <label for="s-name">Name<input id="s-name" name="name" required maxlength="80" placeholder="e.g. Biology"></label>
         <label for="s-teacher">Teacher<input id="s-teacher" name="teacher" maxlength="80" placeholder="Optional"></label>
+        <div class="flinks">
+          <span class="flabel">Teacher's photo</span>
+          <div class="tprow"><div class="tpprev" id="tp-prev"><span>No photo</span></div><div class="tpbtns"><button type="button" class="ghost" id="tp-pick">Add photo</button><button type="button" class="ghost danger" id="tp-remove" hidden>Remove</button></div></div>
+          <input type="file" id="tp-file" accept="image/png,image/jpeg,image/gif,image/webp" hidden>
+        </div>
         <div><span class="hint">Color</span>
           <div class="swatches" role="radiogroup" aria-label="Color">
             <label><input type="radio" name="color" value="0" id="c0" checked><span style="background:var(--s0)"></span></label>
@@ -281,7 +292,7 @@ body.readonly .grid{grid-template-columns:minmax(0,1fr)}
             <label><input type="radio" name="color" value="5" id="c5"><span style="background:var(--s5)"></span></label>
           </div>
         </div>
-        <button class="btn" type="submit">Add subject</button>
+        <div class="formbtns"><button class="btn" type="submit" id="s-submit">Add subject</button><button type="button" class="ghost" id="s-cancel" hidden>Cancel</button></div>
       </form>
       <div class="list" id="list-subjects"></div>
     </div>
@@ -615,11 +626,12 @@ function renderSubjects(){
     const todo=state.activities.filter(a=>a.subjectId===s.id&&a.status!=="submitted").length;
     const done=state.activities.filter(a=>a.subjectId===s.id&&a.status==="submitted").length;
     const links=state.links.filter(l=>l.subjectId===s.id).length;
-    return `<div class="row"><div class="body">
+    const tp=s.teacherPhoto&&blobUrl(s.teacherPhoto);
+    return `<div class="row"><div class="tpav" style="background:var(--s${Number(s.color)%6||0})">${tp?`<img src="${esc(tp)}" alt="${esc(s.teacher||"Teacher")}" data-zoom>`:`<span>${esc(initials(s.teacher||s.name))}</span>`}</div><div class="body">
       <div class="title">${chip(s.id)}</div>
-      <div class="meta">${s.teacher?`<span>${esc(s.teacher)}</span>`:""}<span class="counts">${todo} to do · ${done} submitted · ${links} link${links===1?"":"s"}</span></div>
+      <div class="meta">${s.teacher?`<span>Teacher: ${esc(s.teacher)}</span>`:""}<span class="counts">${todo} to do · ${done} submitted · ${links} link${links===1?"":"s"}</span></div>
     </div><div class="actions">
-      <button class="ghost" data-act="focus" data-id="${esc(s.id)}">Show only this</button>${delBtn("subjects",s.id)}
+      <button class="ghost w" data-act="edits" data-id="${esc(s.id)}">Edit</button>${delBtn("subjects",s.id)}
     </div></div>`;
   }).join("");
   setList("list-subjects", rows || (isLoading("subjects") ? empty("Loading subjects…","") : empty("No subjects yet","Add your first class with the form, like Math or History.")));
@@ -841,9 +853,56 @@ $("#r-subject").addEventListener("change",fillSelects);
 $("#r-date").value=todayStr();
 
 const val = (f,n) => (f.elements[n].value||"").trim();
+/* subjects: add, edit, teacher photo */
+let editS=null, tpFile=null, tpUrl="", tpKeep="", tpRemoved="";
+const initials=t=>String(t||"").replace(/^(mr|mrs|ms|miss|dr|sir|ma'am|maam|prof)\.?\s+/i,"").split(/\s+/).filter(Boolean).slice(0,2).map(w=>w[0].toUpperCase()).join("")||"?";
+function drawTP(){
+  const u=tpUrl||(tpKeep?blobUrl(tpKeep):"");
+  $("#tp-prev").innerHTML=u?`<img src="${esc(u)}" alt="Teacher's photo">`:`<span>No photo</span>`;
+  $("#tp-remove").hidden=!u; $("#tp-pick").textContent=u?"Change photo":"Add photo";
+}
+function clearTP(){ if(tpUrl) URL.revokeObjectURL(tpUrl); tpUrl=""; tpFile=null; tpKeep=""; tpRemoved=""; drawTP(); }
+$("#tp-pick").addEventListener("click",()=>{ if(!assets){ toast("Only people who can edit this School Task Monitor can add photos."); return; } const fi=$("#tp-file"); fi.value=""; fi.click(); });
+$("#tp-file").addEventListener("change",e=>{
+  const f=e.target.files[0]; if(!f) return;
+  if(!["image/png","image/jpeg","image/gif","image/webp"].includes(f.type)){ toast("Use a JPG, PNG, GIF or WebP photo. Convert iPhone HEIC photos to JPG first."); return; }
+  if(f.size>20*1024*1024){ toast("That photo is over 20 MB. Choose a smaller one."); return; }
+  if(tpUrl) URL.revokeObjectURL(tpUrl);
+  tpFile=f; tpUrl=URL.createObjectURL(f);
+  if(tpKeep){ tpRemoved=tpKeep; tpKeep=""; }
+  drawTP();
+});
+$("#tp-remove").addEventListener("click",()=>{ if(tpUrl){ URL.revokeObjectURL(tpUrl); tpUrl=""; tpFile=null; } if(tpKeep){ tpRemoved=tpKeep; tpKeep=""; } drawTP(); });
+function resetSubjectForm(){
+  const f=$("#f-subject"); f.reset(); editS=null; clearTP(); f.classList.remove("editing");
+  $("#s-head").textContent="Add a subject"; $("#s-submit").textContent="Add subject"; $("#s-cancel").hidden=true;
+}
+function startEditSubject(id){
+  const s=subj(id); if(!s) return; const f=$("#f-subject"); editS=id;
+  f.elements.name.value=s.name||""; f.elements.teacher.value=s.teacher||"";
+  const r=f.querySelector(`input[name="color"][value="${Number(s.color)%6||0}"]`); if(r) r.checked=true;
+  if(tpUrl) URL.revokeObjectURL(tpUrl); tpUrl=""; tpFile=null; tpRemoved=""; tpKeep=s.teacherPhoto||""; drawTP();
+  f.classList.add("editing"); $("#s-head").textContent="Edit subject"; $("#s-submit").textContent="Save changes"; $("#s-cancel").hidden=false;
+  f.scrollIntoView({behavior:"smooth",block:"start"}); setTimeout(()=>f.elements.name.focus({preventScroll:true}),300);
+}
+$("#s-cancel").addEventListener("click",()=>{ resetSubjectForm(); toast("Edit cancelled"); });
+drawTP();
 $("#f-subject").addEventListener("submit",async e=>{ e.preventDefault(); const f=e.target;
   const name=val(f,"name"); if(!name) return;
-  if(await add("subjects",{name,teacher:val(f,"teacher"),color:Number(f.elements.color.value)||0})){ f.reset(); toast(`Added ${name}`); }
+  const btn=$("#s-submit"), idle=editS?"Save changes":"Add subject"; btn.disabled=true;
+  let photo=tpKeep, uploaded="";
+  if(tpFile){
+    if(!assets){ toast("Only people who can edit this School Task Monitor can add photos."); btn.disabled=false; return; }
+    btn.textContent="Uploading photo…";
+    try{ photo=uploaded=(await assets.upload(tpFile)).id; }catch(err){ toast(uploadErr(err)); btn.disabled=false; btn.textContent=idle; return; }
+  }
+  const data={name,teacher:val(f,"teacher"),color:Number(f.elements.color.value)||0,teacherPhoto:photo||""};
+  const removed=tpRemoved;
+  if(editS){ await upd("subjects",editS,data); toast(`Updated ${name}`); }
+  else if(!(await add("subjects",data))){ btn.disabled=false; btn.textContent=idle; if(uploaded&&assets) assets.delete(uploaded).catch(()=>{}); return; }
+  else toast(`Added ${name}`);
+  if(removed&&assets) assets.delete(removed).catch(()=>{});
+  btn.disabled=false; resetSubjectForm();
 });
 let editingId=null;
 function resetActivityForm(){
@@ -1043,7 +1102,7 @@ $("#f-remark").addEventListener("submit",async e=>{ e.preventDefault(); const f=
 /* missing files and the photo viewer */
 document.addEventListener("error",e=>{
   const t=e.target;
-  if(t && t.matches && t.matches(".att img,.att video,.gcard img,.gcard video")){ const d=document.createElement("div"); d.className="missing"; d.textContent="File unavailable"; t.replaceWith(d); }
+  if(t && t.matches && t.matches(".att img,.att video,.gcard img,.gcard video,.tpav img")){ const d=document.createElement("div"); d.className="missing"; d.textContent="File unavailable"; t.replaceWith(d); }
 },true);
 document.addEventListener("pause",e=>{ if(e.target.tagName==="VIDEO" && document.querySelector(".list[data-stale='1']")) setTimeout(render,0); },true);
 document.addEventListener("click",e=>{
@@ -1152,6 +1211,7 @@ document.addEventListener("click",e=>{
   const id=b.dataset.id, act=b.dataset.act;
   if(act==="del"){
     if(!b.classList.contains("armed")){ b.classList.add("armed"); b.textContent="Confirm delete"; setTimeout(()=>{ if(b.isConnected){ b.classList.remove("armed"); b.textContent="Delete"; } },3500); return; }
+    if(b.dataset.col==="subjects" && assets){ const sj=subj(id); if(sj&&sj.teacherPhoto) assets.delete(sj.teacherPhoto).catch(()=>{}); }
     if((b.dataset.col==="comments"||b.dataset.col==="remarks") && assets){ const c=state[b.dataset.col].find(x=>x.id===id); (Array.isArray(c&&c.attachments)?c.attachments:[]).forEach(a=>a&&a.id&&assets.delete(a.id).catch(()=>{})); }
     del(b.dataset.col,id); toast("Deleted");
   } else if(act==="ctab"){ ctab=b.dataset.v; try{localStorage.setItem("cb-ctab",ctab);}catch{} renderComments(); }
@@ -1178,6 +1238,7 @@ document.addEventListener("click",e=>{
   }
   else if(act==="callc"){ cact=""; renderComments(); }
   else if(act==="editc"){ startEditComment(id); }
+  else if(act==="edits"){ startEditSubject(id); }
   else if(act==="editr"){ startEditRemark(id); }
   else if(act==="addlink"){
     const a=state.activities.find(x=>x.id===id); if(!a) return;
