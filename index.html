@@ -277,6 +277,7 @@ body.readonly .grid{grid-template-columns:minmax(0,1fr)}
         <label class="filter" for="filter">Showing
           <select id="filter" style="width:auto"><option value="">All subjects</option></select>
         </label>
+        <button type="button" class="ghost" id="xl-btn">Download Excel</button>
         <button type="button" class="ghost" id="install-open">Install &amp; backup</button>
       </div>
     </div>
@@ -1463,6 +1464,120 @@ $("#f-journal").addEventListener("submit",async e=>{ e.preventDefault();
   resetJournalForm();
 });
 resetJournalForm(); pmShow();
+async function saveExcel(name,blob){
+  if(NATIVE){
+    const C=window.Capacitor, FS=C.registerPlugin("Filesystem"), SH=C.registerPlugin("Share");
+    const b64=(await toDataURL(blob)).split(",")[1];
+    let inDocs=false;
+    try{ await FS.writeFile({path:"School Task Monitor/"+name,data:b64,directory:"DOCUMENTS",recursive:true}); inDocs=true; }catch{}
+    try{ const w=await FS.writeFile({path:name,data:b64,directory:"CACHE"}); await SH.share({title:"School Task Monitor Excel",url:w.uri,dialogTitle:"Save or send the Excel file"}); }catch{}
+    return inDocs?"Excel file saved to Documents/School Task Monitor":"Excel file ready. Choose where to save it.";
+  }
+  const url=URL.createObjectURL(blob), a=document.createElement("a"); a.href=url; a.download=name;
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url),15000);
+  return "Excel file downloaded";
+}
+/* Excel export: a real .xlsx built in the app, works offline */
+const XL=(()=>{
+  const T=new Uint32Array(256); for(let n=0;n<256;n++){ let c=n; for(let k=0;k<8;k++) c=c&1?0xEDB88320^(c>>>1):c>>>1; T[n]=c>>>0; }
+  const crc=b=>{ let c=0xFFFFFFFF; for(let i=0;i<b.length;i++) c=T[(c^b[i])&255]^(c>>>8); return (c^0xFFFFFFFF)>>>0; };
+  const enc=new TextEncoder();
+  function zip(files){
+    const parts=[], central=[]; let off=0;
+    for(const f of files){
+      const name=enc.encode(f.name), data=enc.encode(f.data), c=crc(data);
+      const h=new DataView(new ArrayBuffer(30));
+      h.setUint32(0,0x04034b50,true); h.setUint16(4,20,true); h.setUint16(6,0x0800,true); h.setUint16(12,0x21,true);
+      h.setUint32(14,c,true); h.setUint32(18,data.length,true); h.setUint32(22,data.length,true); h.setUint16(26,name.length,true);
+      parts.push(new Uint8Array(h.buffer),name,data);
+      const d=new DataView(new ArrayBuffer(46));
+      d.setUint32(0,0x02014b50,true); d.setUint16(4,20,true); d.setUint16(6,20,true); d.setUint16(8,0x0800,true); d.setUint16(14,0x21,true);
+      d.setUint32(16,c,true); d.setUint32(20,data.length,true); d.setUint32(24,data.length,true); d.setUint16(28,name.length,true); d.setUint32(42,off,true);
+      central.push(new Uint8Array(d.buffer),name);
+      off+=30+name.length+data.length;
+    }
+    const size=central.reduce((s,a)=>s+a.length,0), e=new DataView(new ArrayBuffer(22));
+    e.setUint32(0,0x06054b50,true); e.setUint16(8,files.length,true); e.setUint16(10,files.length,true); e.setUint32(12,size,true); e.setUint32(16,off,true);
+    return new Blob([...parts,...central,new Uint8Array(e.buffer)],{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"});
+  }
+  const x=s=>String(s).replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g,"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+  const col=i=>{ let s=""; i++; while(i){ const m=(i-1)%26; s=String.fromCharCode(65+m)+s; i=Math.floor((i-1)/26); } return s; };
+  const serial=d=>{ const [y,m,dd]=String(d).split("-").map(Number); return (Date.UTC(y,m-1,dd)-Date.UTC(1899,11,30))/864e5; };
+  const str=(ref,s,v)=>`<c r="${ref}"${s} t="inlineStr"><is><t xml:space="preserve">${x(v)}</t></is></c>`;
+  function sheetXml(rows,widths,header){
+    const body=rows.map((r,ri)=>`<row r="${ri+1}">${r.map((v,ci)=>{
+      const ref=col(ci)+(ri+1), hs=header&&ri===0?' s="1"':"";
+      if(v===null||v===undefined||v==="") return "";
+      if(typeof v==="number") return `<c r="${ref}"${hs}><v>${v}</v></c>`;
+      if(typeof v==="object"&&v.d) return /^\d{4}-\d{2}-\d{2}$/.test(v.d)?`<c r="${ref}" s="2"><v>${serial(v.d)}</v></c>`:"";
+      if(typeof v==="object"&&v.pct!==undefined) return `<c r="${ref}" s="3"><v>${v.pct}</v></c>`;
+      if(typeof v==="object"&&v.b!==undefined) return str(ref,' s="1"',v.b);
+      return str(ref,hs,v);
+    }).join("")}</row>`).join("");
+    const cols=widths?`<cols>${widths.map((w,i)=>`<col min="${i+1}" max="${i+1}" width="${w}" customWidth="1"/>`).join("")}</cols>`:"";
+    const views=header?`<sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>`:`<sheetViews><sheetView workbookViewId="0"/></sheetViews>`;
+    const wide=Math.max(1,...rows.map(r=>r.length));
+    const af=header&&rows.length>1?`<autoFilter ref="A1:${col(wide-1)}${rows.length}"/>`:"";
+    return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">${views}${cols}<sheetData>${body}</sheetData>${af}</worksheet>`;
+  }
+  function book(sheets){
+    const X='<?xml version="1.0" encoding="UTF-8" standalone="yes"?>', R="http://schemas.openxmlformats.org/officeDocument/2006/relationships";
+    const files=[
+      {name:"[Content_Types].xml",data:`${X}<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>${sheets.map((s,i)=>`<Override PartName="/xl/worksheets/sheet${i+1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join("")}</Types>`},
+      {name:"_rels/.rels",data:`${X}<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="${R}/officeDocument" Target="xl/workbook.xml"/></Relationships>`},
+      {name:"xl/workbook.xml",data:`${X}<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="${R}"><sheets>${sheets.map((s,i)=>`<sheet name="${x(s.name)}" sheetId="${i+1}" r:id="rId${i+1}"/>`).join("")}</sheets></workbook>`},
+      {name:"xl/_rels/workbook.xml.rels",data:`${X}<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${sheets.map((s,i)=>`<Relationship Id="rId${i+1}" Type="${R}/worksheet" Target="worksheets/sheet${i+1}.xml"/>`).join("")}<Relationship Id="rId${sheets.length+1}" Type="${R}/styles" Target="styles.xml"/></Relationships>`},
+      {name:"xl/styles.xml",data:`${X}<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><numFmts count="1"><numFmt numFmtId="164" formatCode="yyyy-mm-dd"/></numFmts><fonts count="2"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><name val="Calibri"/></font></fonts><fills count="3"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FFE6ECFB"/><bgColor indexed="64"/></patternFill></fill></fills><borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="4"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1"/><xf numFmtId="164" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/><xf numFmtId="9" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>`}
+    ];
+    sheets.forEach((s,i)=>files.push({name:`xl/worksheets/sheet${i+1}.xml`,data:sheetXml(s.rows,s.widths,s.header!==false)}));
+    return zip(files);
+  }
+  return {book};
+})();
+function buildWorkbook(){
+  const sName=id=>{ const s=subj(id); return s?s.name||"":""; };
+  const aTitle=id=>{ const a=id&&state.activities.find(x=>x.id===id); return a?a.title||"":""; };
+  const ymd=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+  const msD=ms=>ms?{d:ymd(new Date(ms))}:"";
+  const D=s=>s?{d:s}:"";
+  const attList=atts=>(Array.isArray(atts)?atts:[]).filter(a=>a&&a.id).map(a=>`${KINDS[a.kind]||"File"}: ${a.name||"file"}`).join("; ");
+  const acts=state.activities, dl=a=>a.end||a.due||"", today=todayStr();
+  const n={notcomplete:0,ongoing:0,submitted:0}; acts.forEach(a=>n[st(a)]++);
+  const overdue=acts.filter(a=>st(a)!=="submitted"&&dl(a)&&dl(a)<today).length;
+  const onTime=a=>{ if(st(a)!=="submitted"||!dl(a)||!a.submittedAt) return ""; const e=parseDay(dl(a)); e.setHours(23,59,59,999); return a.submittedAt<=e.getTime()?"On time":"Late"; };
+  const summary=[[{b:"School Task Monitor"+(ownerName?` of ${ownerName}`:"")}],["Exported on",D(today)],[],
+    [{b:"Activities"}],["Total",acts.length],["Submitted",n.submitted],["Ongoing",n.ongoing],["Not Started",n.notcomplete],["Overdue",overdue],["Progress (submitted)",{pct:acts.length?n.submitted/acts.length:0}],[],
+    [{b:"Subject"},{b:"Teacher"},{b:"Activities"},{b:"Submitted"},{b:"Ongoing"},{b:"Not Started"},{b:"Progress"}]];
+  for(const s of [...state.subjects].sort((a,b)=>String(a.name).localeCompare(String(b.name)))){
+    const sa=acts.filter(a=>a.subjectId===s.id), c={notcomplete:0,ongoing:0,submitted:0}; sa.forEach(a=>c[st(a)]++);
+    summary.push([s.name||"",s.teacher||"",sa.length,c.submitted,c.ongoing,c.notcomplete,{pct:sa.length?c.submitted/sa.length:0}]);
+  }
+  summary.push([],[pmUnlocked?"Parents Journal is included because Parents Monitoring was unlocked.":"Parents Journal is not included. Unlock Parents Monitoring first to include it."]);
+  const sheets=[{name:"Summary",header:false,widths:[30,22,12,12,12,12,12],rows:summary}];
+  sheets.push({name:"Subjects",widths:[26,24,14,12,10],rows:[["Subject","Teacher","Teacher photo","Activities","Links"],
+    ...state.subjects.map(s=>[s.name||"",s.teacher||"",s.teacherPhoto?"Yes":"No",acts.filter(a=>a.subjectId===s.id).length,state.links.filter(l=>l.subjectId===s.id).length])]});
+  sheets.push({name:"Activities",widths:[34,20,14,12,12,20,14,10,10,36,44,44],rows:[["Title","Subject","Status","Start date","End date","Deadline","Submitted on","On time","Grade","Submission link","Notes","Links"],
+    ...[...acts].sort((a,b)=>(dl(a)||"9999").localeCompare(dl(b)||"9999")).map(a=>[a.title||"",sName(a.subjectId),ST[st(a)].t,D(a.start),D(dl(a)),st(a)==="submitted"?"":dueInfo(dl(a)).t,msD(a.submittedAt),onTime(a),a.grade||"",a.submissionUrl||"",a.notes||"",
+      state.links.filter(l=>l.activityId===a.id).map(l=>`${l.title||""} (${l.url||""})`).join("; ")])]});
+  sheets.push({name:"Links",widths:[32,48,20,30,12],rows:[["Title","Web address","Subject","Activity","Added on"],
+    ...state.links.map(l=>[l.title||"",l.url||"",sName(l.subjectId),aTitle(l.activityId),msD(l.createdAt)])]});
+  sheets.push({name:"Comments",widths:[12,20,30,64,40],rows:[["Date","Subject","Activity","Comment","Attachments"],
+    ...[...state.comments].sort((a,b)=>(a.createdAt||0)-(b.createdAt||0)).map(c=>[msD(c.createdAt),sName(c.subjectId),aTitle(c.activityId),c.text||"",attList(c.attachments)])]});
+  sheets.push({name:"Teacher Remarks",widths:[14,20,22,30,16,8,64,40],rows:[["Date received","Subject","Teacher","Activity","Type","Done","Remark","Attachments"],
+    ...[...state.remarks].sort((a,b)=>String(a.date||"").localeCompare(String(b.date||""))).map(r=>{ const s=subj(r.subjectId); return [D(r.date),s?s.name||"":"",s&&s.teacher||"",aTitle(r.activityId),(KIND[r.kind]||KIND.note).t,r.kind==="action"?(r.resolved?"Yes":"No"):"",r.text||"",attList(r.attachments)]; })]});
+  if(pmUnlocked) sheets.push({name:"Parents Journal",widths:[12,22,30,72],rows:[["Date","Subject","Related activity","Entry"],
+    ...[...state.journal].sort((a,b)=>String(a.date||"").localeCompare(String(b.date||""))).map(j=>[D(j.date),j.subjectId&&subj(j.subjectId)?sName(j.subjectId):(j.subjectText||""),aTitle(j.activityId),j.text||""])]});
+  return XL.book(sheets);
+}
+$("#xl-btn").addEventListener("click",async()=>{
+  const btn=$("#xl-btn"); btn.disabled=true; btn.textContent="Preparing…";
+  try{
+    const blob=buildWorkbook(), name=`school-task-monitor-${todayStr()}.xlsx`;
+    const msg=await saveExcel(name,blob);
+    if(msg) toast(msg);
+  }catch(e){ toast("The Excel file couldn't be made. Try again."); }
+  btn.disabled=false; btn.textContent="Download Excel";
+});
 /* ---------- boot ---------- */
 function updateNet(){ if(mode!=="device") return; setStatus(navigator.onLine ? "Saved on this device" : "Offline · saved on this device"); }
 addEventListener("online",updateNet); addEventListener("offline",updateNet);
