@@ -1,0 +1,8 @@
+{
+  "appId": "com.kurtmoi.coursebook",
+  "appName": "Coursebook",
+  "webDir": "www",
+  "android": {
+    "adjustMarginsForEdgeToEdge": "auto"
+  }
+}

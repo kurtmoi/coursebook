@@ -34,6 +34,20 @@ Open the address on each device, then tap **Install & backup** in the app's head
 - **Android:** Chrome → Install app (or ⋮ → Add to Home screen)
 - **Computer:** Chrome or Edge → install icon in the address bar; Safari on Mac → File → Add to Dock
 
+## Android app
+
+There is also a real Android app (`.apk`) built from the same code with [Capacitor](https://capacitorjs.com/).
+
+1. On your Android phone, open the **Releases** page of this repository and download the newest **Coursebook.apk**.
+2. Open the downloaded file. If Android asks, allow your browser or Files app to install unknown apps.
+3. Open **Coursebook** from your home screen. It works offline and saves everything in the phone's storage.
+
+To move your data in, use **Backup → Restore from backup** in the app. **Backup → Download backup** saves a copy to `Documents/Coursebook` and opens the share sheet, so you can also send it to Google Drive, email or another phone.
+
+A new APK is built automatically by GitHub Actions (`.github/workflows/android.yml`) every time `index.html`, the icons or the `mobile/` folder change. The native project settings live in `mobile/`.
+
+**iPhone:** an App Store or installable iPhone app needs an Apple Developer account. Until then, install the web app from Safari (see above). It also works offline.
+
 ## Your data
 
 - Data is saved in the browser's storage on **that device only**. Devices do not sync with each other.

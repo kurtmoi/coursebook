@@ -897,6 +897,8 @@ document.addEventListener("click",e=>{
 addEventListener("keydown",e=>{ if(e.key==="Escape"){ $("#lb").hidden=true; $("#install").hidden=true; } });
 /* install and backup */
 const ua=navigator.userAgent||"";
+const NATIVE = !!(window.Capacitor && typeof window.Capacitor.isNativePlatform==="function" && window.Capacitor.isNativePlatform());
+if(NATIVE){ $("#install-open").textContent="Backup"; $("#install-title").textContent="Backup"; const s0=document.querySelector("#install .sheet-sec"); if(s0) s0.hidden=true; }
 const isIOS = /iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints>1);
 const isStandalone = () => matchMedia("(display-mode: standalone)").matches || navigator.standalone===true;
 let deferredPrompt=null;
@@ -922,6 +924,13 @@ $("#install-open").addEventListener("click",()=>{ refreshInstall(); refreshStora
 $("#install-close").addEventListener("click",()=>{ $("#install").hidden=true; $("#install-open").focus(); });
 $("#install").addEventListener("click",e=>{ if(e.target.id==="install") $("#install").hidden=true; });
 const toDataURL = b => new Promise((res,rej)=>{ const r=new FileReader(); r.onload=()=>res(r.result); r.onerror=()=>rej(r.error); r.readAsDataURL(b); });
+async function saveNative(name,text){
+  const C=window.Capacitor, FS=C.registerPlugin("Filesystem"), SH=C.registerPlugin("Share");
+  let inDocs=false;
+  try{ await FS.writeFile({path:"Coursebook/"+name,data:text,directory:"DOCUMENTS",encoding:"utf8",recursive:true}); inDocs=true; }catch{}
+  try{ const w=await FS.writeFile({path:name,data:text,directory:"CACHE",encoding:"utf8"}); await SH.share({title:"Coursebook backup",url:w.uri,dialogTitle:"Save or send your backup"}); }catch{}
+  return inDocs;
+}
 $("#bk-save").addEventListener("click",async()=>{
   if(!idb){ toast("Nothing is saved on this device to back up."); return; }
   const btn=$("#bk-save"); btn.disabled=true; btn.textContent="Preparing…";
@@ -929,10 +938,16 @@ $("#bk-save").addEventListener("click",async()=>{
     const data={}; for(const c of COLS) data[c]=await idbAll(c);
     const files=[]; for(const f of await idbAll("files")) if(f && f.blob) files.push({id:f.id,type:f.type,createdAt:f.createdAt,data:await toDataURL(f.blob)});
     const out=JSON.stringify({app:"coursebook",version:1,exportedAt:new Date().toISOString(),data,files});
-    const url=URL.createObjectURL(new Blob([out],{type:"application/json"}));
-    const a=document.createElement("a"); a.href=url; a.download=`coursebook-backup-${todayStr()}.json`;
-    document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url),15000);
-    toast(`Backup downloaded with ${files.length} file${files.length===1?"":"s"}`);
+    const name=`coursebook-backup-${todayStr()}.json`, nf=`${files.length} file${files.length===1?"":"s"}`;
+    if(NATIVE){
+      const inDocs=await saveNative(name,out);
+      toast(inDocs ? `Backup saved to Documents/Coursebook with ${nf}` : `Backup ready with ${nf}. Choose where to save it.`);
+    } else {
+      const url=URL.createObjectURL(new Blob([out],{type:"application/json"}));
+      const a=document.createElement("a"); a.href=url; a.download=name;
+      document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url),15000);
+      toast(`Backup downloaded with ${nf}`);
+    }
   }catch{ toast("The backup couldn't be made. Free up some space on this device and try again."); }
   btn.disabled=false; btn.textContent="Download backup";
 });
@@ -1031,7 +1046,7 @@ showTab(); render();
   await reloadAll(); updateNet();
   try{ if(navigator.storage && navigator.storage.persist && !(await navigator.storage.persisted())) await navigator.storage.persist(); }catch{}
 })();
-if("serviceWorker" in navigator && location.protocol!=="file:"){
+if("serviceWorker" in navigator && location.protocol!=="file:" && !NATIVE){
   addEventListener("load",()=>{ navigator.serviceWorker.register("sw.js").catch(()=>{}); });
 }
 })();
