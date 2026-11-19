@@ -479,10 +479,9 @@ body.readonly .grid{grid-template-columns:minmax(0,1fr)}
       </form>
       <button type="button" class="ghost" id="pm-forgot" hidden>Forgot the code?</button>
       <div class="confirm" id="pm-reset" hidden>
-        <p id="pm-mail-msg"></p>
-        <div class="copyrow"><button type="button" class="btn" id="pm-mail-go">Email me a new code</button></div>
-        <p>No access to that email? Resetting removes the code and erases every parent journal entry, so nobody can read them without the code. Activities aren't affected.</p>
-        <div class="copyrow"><button type="button" class="btn danger" id="pm-reset-go">Reset and erase journal</button><button type="button" class="ghost" id="pm-reset-cancel">Cancel</button></div>
+        <p id="pm-mail-msg">Enter the parent's email address. A new temporary code will be sent there.</p>
+        <label for="pm-forgot-email">Parent's email<input id="pm-forgot-email" type="email" maxlength="120" placeholder="parent@example.com" autocomplete="email"></label>
+        <div class="copyrow"><button type="button" class="btn" id="pm-mail-go">Email me a new code</button><button type="button" class="ghost" id="pm-reset-cancel">Cancel</button></div>
       </div>
     </div>
     <div id="pm-body" hidden>
@@ -1451,14 +1450,10 @@ $("#pm-pin-form").addEventListener("submit",async e=>{ e.preventDefault();
 });
 $("#pm-forgot").addEventListener("click",()=>{
   const em=parentPin&&parentPin.email;
-  $("#pm-mail-msg").textContent=em?`A new temporary code will be emailed to ${maskEmail(em)}. This needs an internet connection.`:"No recovery email was set, so a new code can't be emailed.";
-  $("#pm-mail-go").hidden=!em; $("#pm-reset").hidden=false;
+  $("#pm-mail-msg").textContent=em?`Enter the parent's email address (${maskEmail(em)}). A new temporary code will be sent there.`:"Enter the parent's email address. A new temporary code will be sent there.";
+  $("#pm-forgot-email").value=""; $("#pm-reset").hidden=false; $("#pm-forgot-email").focus();
 });
 $("#pm-reset-cancel").addEventListener("click",()=>{ $("#pm-reset").hidden=true; });
-$("#pm-reset-go").addEventListener("click",async()=>{
-  for(const j of state.journal.slice()) await del("journal",j.id);
-  await clearPin(); parentPin=null; pmLock(); toast("Code removed and journal erased. Set a new code.");
-});
 $("#pm-lockbtn").addEventListener("click",()=>{ pmLock(); toast("Locked"); });
 $("#pm-change").addEventListener("click",()=>{ pmMode="change"; pmShow(); $("#pm-pin").focus(); });
 $("#pm-change-cancel").addEventListener("click",()=>{ pmMode="unlock"; $("#pm-pin").value=""; $("#pm-pin2").value=""; pmShow(); });
@@ -1663,7 +1658,11 @@ async function confirmRecoveryEmail(email){
   else toast("Recovery email saved, but the confirmation couldn't be sent right now. It will work once you're online and it's activated.");
 }
 $("#pm-mail-go").addEventListener("click",async()=>{
-  const em=parentPin&&parentPin.email; if(!em) return;
+  const typed=$("#pm-forgot-email").value.trim();
+  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(typed)){ toast("Enter the parent's email address."); $("#pm-forgot-email").focus(); return; }
+  const saved=parentPin&&parentPin.email;
+  if(saved&&typed.toLowerCase()!==saved.toLowerCase()){ toast(`That isn't the recovery email saved for this code (${maskEmail(saved)}).`); $("#pm-forgot-email").focus(); return; }
+  const em=saved||typed;
   if(Date.now()<pmMailWait){ toast(`Please wait ${Math.ceil((pmMailWait-Date.now())/1000)} seconds before sending another email.`); return; }
   if(!navigator.onLine){ toast("You're offline. Connect to the internet to email a new code."); return; }
   const btn=$("#pm-mail-go"); btn.disabled=true; btn.textContent="Sending…";
@@ -1676,7 +1675,9 @@ $("#pm-mail-go").addEventListener("click",async()=>{
     const rec={hash:await pinHash(code,salt),salt,email:em,temp:true};
     if(await savePin(rec)){ parentPin=rec; pmMailWait=Date.now()+120000; pmShow(); toast(`A new code was emailed to ${maskEmail(em)}. Unlock with it, then choose a new code.`); }
   } else if(r==="activate"){
-    toast(`The recovery email isn't activated yet. Check ${maskEmail(em)} for an email from FormSubmit and click "Activate Form", then try again.`);
+    toast(`That email isn't activated yet. Check ${maskEmail(em)} for an email from FormSubmit and click "Activate Form", then try again.`);
+  } else if(String(r).startsWith("connect")){
+    toast("Sending needs the Composio connector with Gmail in claude.ai (Settings → Connectors), and your permission when Claude asks.");
   } else toast("The email couldn't be sent. Check the internet connection and try again.");
   btn.disabled=false; btn.textContent="Email me a new code";
 });
