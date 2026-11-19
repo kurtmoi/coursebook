@@ -1,0 +1,1040 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Coursebook</title>
+<meta name="description" content="Track subjects, activities, links, comments and teacher remarks. Works offline and saves on your device.">
+<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#191e28" media="(prefers-color-scheme: dark)">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Coursebook">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="icon" href="icons/icon-192.png" type="image/png" sizes="192x192">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: sticky header with five section tabs; each section = add-form panel beside its list, stacking on phones */
+:root{
+  --bg:#f4f6f9; --surface:#ffffff; --ink:#18202f; --muted:#5b6578; --line:#dde2ea;
+  --accent:#2f5bd3; --accent-ink:#ffffff; --accent-soft:#e6ecfb;
+  --ok:#1d7f53; --ok-soft:#e1f3ea; --warn:#a46a12; --warn-soft:#fbf0dc; --bad:#bf3b27; --bad-soft:#fbe5e1;
+  --s0:#2f5bd3; --s1:#1d7f53; --s2:#c2412d; --s3:#7c4fe0; --s4:#b57914; --s5:#0e8796;
+  --f-display:"Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --f-body:"Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-mono:"JetBrains Mono", ui-monospace, Menlo, monospace;
+  --r:10px;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#11141b; --surface:#191e28; --ink:#e6e9f0; --muted:#9aa3b5; --line:#2a3141;
+  --accent:#86a2f6; --accent-ink:#0d1324; --accent-soft:#1f2942;
+  --ok:#5cc996; --ok-soft:#173226; --warn:#e5b65a; --warn-soft:#352a14; --bad:#f2836f; --bad-soft:#3a1f1a;
+  --s0:#86a2f6; --s1:#5cc996; --s2:#f2836f; --s3:#b39af5; --s4:#e5b65a; --s5:#4fc3d1;
+  color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#11141b; --surface:#191e28; --ink:#e6e9f0; --muted:#9aa3b5; --line:#2a3141;
+  --accent:#86a2f6; --accent-ink:#0d1324; --accent-soft:#1f2942;
+  --ok:#5cc996; --ok-soft:#173226; --warn:#e5b65a; --warn-soft:#352a14; --bad:#f2836f; --bad-soft:#3a1f1a;
+  --s0:#86a2f6; --s1:#5cc996; --s2:#f2836f; --s3:#b39af5; --s4:#e5b65a; --s5:#4fc3d1;
+  color-scheme:dark}
+
+*{box-sizing:border-box}
+:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);-webkit-text-size-adjust:100%}
+body{margin:0}
+img{max-width:100%}
+[hidden]{display:none!important}
+.sheet-sec{display:flex;flex-direction:column;gap:10px;border-top:1px solid var(--line);padding-top:14px}
+.sheet-sec h3{margin:0;font:600 .78rem var(--f-body);text-transform:uppercase;letter-spacing:.07em;color:var(--muted)}
+.confirm{background:var(--warn-soft);border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:10px}
+.confirm p{margin:0;font-size:.9rem;color:var(--ink)}
+.btn.danger{background:var(--bad);color:var(--surface)}
+body{background:var(--bg);color:var(--ink);font:15px/1.5 var(--f-body)}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--surface)}
+.wrap{max-width:1040px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+
+header{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--surface);border-bottom:1px solid var(--line)}
+.top{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;padding-block:14px 10px}
+.brand{display:flex;align-items:baseline;gap:10px}
+.brand h1{font:700 1.5rem/1 var(--f-display);margin:0;letter-spacing:-.01em}
+.status{font:500 .72rem var(--f-mono);color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.filter{display:flex;align-items:center;gap:8px;font-size:.85rem;color:var(--muted)}
+nav{display:flex;gap:4px;overflow-x:auto;scrollbar-width:none;margin-bottom:-1px}
+nav::-webkit-scrollbar{display:none}
+nav a{display:flex;align-items:center;gap:8px;padding:10px 14px;color:var(--muted);text-decoration:none;font-weight:600;font-size:.82rem;letter-spacing:.06em;text-transform:uppercase;border-bottom:2px solid transparent;white-space:nowrap}
+nav a:hover{color:var(--ink)}
+nav a[aria-selected="true"]{color:var(--accent);border-bottom-color:var(--accent)}
+nav .n{font:500 .72rem var(--f-mono);background:var(--bg);color:var(--muted);border-radius:99px;padding:1px 7px;letter-spacing:0}
+nav a[aria-selected="true"] .n{background:var(--accent-soft);color:var(--accent)}
+
+main{padding-block:24px 48px}
+section > h2{font:700 1.35rem/1.2 var(--f-display);margin:0 0 4px;text-wrap:balance}
+section > p.lede{margin:0 0 18px;color:var(--muted);max-width:62ch}
+.grid{display:grid;grid-template-columns:300px minmax(0,1fr);gap:20px;align-items:start}
+@media (max-width:760px){.grid{grid-template-columns:minmax(0,1fr)}}
+
+form.panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px;display:flex;flex-direction:column;gap:12px}
+form.panel h3{margin:0;font:600 .78rem var(--f-body);text-transform:uppercase;letter-spacing:.07em;color:var(--muted)}
+label{display:flex;flex-direction:column;gap:4px;font-size:.82rem;font-weight:500;color:var(--muted)}
+input,select,textarea{font:inherit;font-size:.92rem;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px 10px;width:100%;min-width:0}
+textarea{resize:vertical;min-height:84px}
+input:focus,select:focus,textarea:focus{outline:2px solid var(--accent);outline-offset:-1px;border-color:transparent}
+.swatches{display:flex;gap:8px;flex-wrap:wrap}
+.swatches input{position:absolute;opacity:0;width:1px;height:1px}
+.swatches span{display:block;width:26px;height:26px;border-radius:50%;cursor:pointer;border:3px solid var(--surface);box-shadow:0 0 0 1px var(--line)}
+.swatches input:checked + span{box-shadow:0 0 0 2px var(--ink)}
+.swatches input:focus-visible + span{outline:2px solid var(--accent);outline-offset:2px}
+.hint{font-size:.8rem;color:var(--muted);margin:0}
+
+button{font:inherit;cursor:pointer;border-radius:8px}
+.btn{background:var(--accent);color:var(--accent-ink);border:0;padding:9px 14px;font-weight:600;font-size:.88rem}
+.btn:hover{filter:brightness(1.07)}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.ghost{background:transparent;border:1px solid var(--line);color:var(--ink);padding:5px 10px;font-size:.8rem;font-weight:500}
+.ghost:hover{border-color:var(--muted)}
+.ghost.danger{color:var(--bad)}
+.ghost.armed{background:var(--bad);border-color:var(--bad);color:var(--surface)}
+.ghost.go{color:var(--ok);border-color:var(--ok)}
+button:focus-visible,a:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+.list{display:flex;flex-direction:column;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);min-width:0}
+.row{display:flex;gap:14px;align-items:flex-start;justify-content:space-between;padding:14px 16px;border-top:1px solid var(--line)}
+.row:first-child{border-top:0}
+.row .body{min-width:0;flex:1;display:flex;flex-direction:column;gap:5px}
+.row .title{font-weight:600;overflow-wrap:anywhere}
+.row .meta{display:flex;flex-wrap:wrap;gap:6px 12px;align-items:center;font-size:.82rem;color:var(--muted)}
+.row .note{font-size:.88rem;color:var(--muted);white-space:pre-wrap;overflow-wrap:anywhere}
+.row .actions{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;flex-shrink:0}
+@media (max-width:520px){.row{flex-direction:column}.row .actions{justify-content:flex-start}}
+.chip{display:inline-flex;align-items:center;gap:6px;font-size:.8rem;font-weight:500;color:var(--ink)}
+.chip i{width:9px;height:9px;border-radius:50%;flex-shrink:0}
+.pill{font:500 .72rem var(--f-mono);padding:2px 8px;border-radius:99px;white-space:nowrap}
+.pill.bad{background:var(--bad-soft);color:var(--bad)}
+.pill.warn{background:var(--warn-soft);color:var(--warn)}
+.pill.ok{background:var(--ok-soft);color:var(--ok)}
+.pill.muted{background:var(--bg);color:var(--muted)}
+.mono{font-family:var(--f-mono);font-size:.78rem}
+.row a{color:var(--accent);overflow-wrap:anywhere}
+.inline{display:flex;flex-wrap:wrap;gap:8px}
+.inline label{flex:1 1 200px}
+.inline label.sm{flex:0 1 110px}
+.empty{padding:32px 20px;text-align:center;color:var(--muted)}
+.empty strong{display:block;color:var(--ink);font:600 1rem var(--f-display);margin-bottom:4px}
+.counts{font:500 .76rem var(--f-mono);color:var(--muted)}
+
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(20px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:8px;font-size:.88rem;max-width:calc(100% - 32px);z-index:20}
+.stack{display:flex;flex-direction:column;gap:12px;min-width:0}
+.seg{display:inline-flex;flex-wrap:wrap;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:var(--surface);align-self:flex-start;max-width:100%}
+.seg button{border:0;border-radius:0;background:transparent;color:var(--muted);padding:6px 11px;font-size:.78rem;font-weight:500;border-left:1px solid var(--line);display:inline-flex;gap:6px;align-items:center}
+.seg button:first-child{border-left:0}
+.seg button:hover{color:var(--ink)}
+.seg button[aria-pressed="true"]{background:var(--accent-soft);color:var(--accent);font-weight:600}
+.seg button.notcomplete[aria-pressed="true"]{background:var(--bad-soft);color:var(--bad)}
+.seg button.ongoing[aria-pressed="true"]{background:var(--warn-soft);color:var(--warn)}
+.seg button.submitted[aria-pressed="true"]{background:var(--ok-soft);color:var(--ok)}
+.seg .c{font:500 .7rem var(--f-mono)}
+.dash{display:grid;grid-template-columns:220px minmax(0,1fr);gap:28px;align-items:center;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:20px;margin-bottom:16px}
+@media (max-width:640px){.dash{grid-template-columns:minmax(0,1fr);gap:18px}}
+#pie{width:100%;max-width:220px;height:auto;display:block;margin:0 auto}
+#pie [data-v]{cursor:pointer;transition:opacity .15s}
+#pie.focus [data-v]:not(.on){opacity:.3}
+.prog{display:flex;flex-direction:column;gap:4px;margin-bottom:14px}
+.prog .eyebrow{font:600 .72rem var(--f-body);text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+.prog .big{font:700 2.6rem/1 var(--f-display);color:var(--ok);font-variant-numeric:tabular-nums}
+.prog .sub{color:var(--muted);font-size:.88rem}
+.bar{display:flex;height:8px;border-radius:99px;overflow:hidden;background:var(--line);margin-top:6px;max-width:360px}
+.bar span{display:block;height:100%}
+.legend{display:flex;flex-direction:column;gap:2px;max-width:420px}
+.legend button{display:grid;grid-template-columns:12px minmax(0,1fr) auto 3.2em;gap:10px;align-items:center;background:transparent;border:1px solid transparent;padding:8px 10px;text-align:left;color:var(--ink);font-size:.9rem}
+.legend button:hover{background:var(--bg)}
+.legend button[aria-pressed="true"]{border-color:var(--line);background:var(--bg);font-weight:600}
+.legend i{width:12px;height:12px;border-radius:3px}
+.legend .cnt{font:500 .78rem var(--f-mono);color:var(--muted);font-variant-numeric:tabular-nums}
+.legend .pc{font:600 .85rem var(--f-mono);text-align:right;font-variant-numeric:tabular-nums}
+.flinks{display:flex;flex-direction:column;gap:8px}
+.flabel{font-size:.82rem;font-weight:500;color:var(--muted)}
+#a-links{display:flex;flex-direction:column;gap:10px}
+.lrow{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px}
+.lrow .lt{grid-column:1 / -1}
+.lrow + .lrow{padding-top:10px;border-top:1px dashed var(--line)}
+#a-addlink{align-self:flex-start}
+.attbtns{display:flex;flex-wrap:wrap;gap:6px}
+.attbtns button:disabled{opacity:.45;cursor:not-allowed}
+.pending{display:grid;grid-template-columns:repeat(auto-fill,minmax(76px,1fr));gap:6px}
+.pending:empty{display:none}
+.pend{position:relative;aspect-ratio:1;border-radius:8px;overflow:hidden;background:var(--bg);border:1px solid var(--line);max-width:100%}
+.pend img,.pend video{width:100%;height:100%;object-fit:cover;display:block}
+.pend .pk{position:absolute;left:4px;bottom:4px;font:500 .62rem var(--f-mono);background:var(--surface);color:var(--ink);padding:1px 5px;border-radius:4px}
+.pend button{position:absolute;top:3px;right:3px;padding:0 7px;background:var(--surface);line-height:1.5}
+.atts{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px;margin-top:4px}
+.att{margin:0;display:flex;flex-direction:column;gap:3px;min-width:0}
+.att figcaption{font:500 .66rem var(--f-mono);color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.att img,.att video,.gcard img,.gcard video{width:100%;max-width:100%;aspect-ratio:4/3;object-fit:cover;border-radius:8px;border:1px solid var(--line);background:var(--bg);display:block}
+.att video,.gcard video{object-fit:contain;background:var(--ink)}
+img[data-zoom]{cursor:zoom-in}
+.gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:16px;padding:16px}
+.gcard{margin:0;display:flex;flex-direction:column;gap:8px;min-width:0}
+.gcard figcaption{display:flex;flex-direction:column;gap:6px;font-size:.85rem}
+.gtext{color:var(--ink);display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}
+.gcard .ghost{align-self:flex-start}
+.missing{aspect-ratio:4/3;display:grid;place-items:center;border:1px dashed var(--line);border-radius:8px;color:var(--muted);font-size:.8rem;text-align:center;padding:8px}
+.lightbox{position:fixed;inset:0;z-index:30;background:color-mix(in srgb,var(--ink) 88%,transparent);display:grid;place-items:center;cursor:zoom-out;padding:max(16px,env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) max(16px,env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px))}
+.lightbox img{max-width:100%;max-height:100%;border-radius:8px;object-fit:contain}
+.alinks{display:flex;flex-wrap:wrap;gap:4px 14px;align-items:baseline;font-size:.86rem}
+.alinks .lbl{font:600 .68rem var(--f-body);text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+/* phones and tablets */
+.list{container-type:inline-size}
+@container (max-width:620px){ .row{flex-direction:column} .row .actions{justify-content:flex-start} }
+@media (pointer:coarse){
+  input,select,textarea{font-size:16px}
+  .ghost,.seg button{min-height:40px}
+  .legend button{min-height:44px}
+  nav a{padding-block:12px}
+  .pend button{min-height:28px;min-width:28px}
+}
+@media (max-width:480px){ .brand h1{font-size:1.3rem} .filter select{max-width:56vw} }
+.topright{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.sheet{position:fixed;inset:0;z-index:25;background:color-mix(in srgb,var(--ink) 55%,transparent);display:grid;place-items:center;padding:max(16px,env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) max(16px,env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px))}
+.sheet .card{background:var(--surface);color:var(--ink);border-radius:14px;border:1px solid var(--line);width:min(560px,100%);max-height:100%;overflow:auto;padding:20px;display:flex;flex-direction:column;gap:14px}
+.sheet h2{font:700 1.3rem var(--f-display);margin:0}
+.sheet ol{margin:0;padding-left:1.3em;display:flex;flex-direction:column;gap:8px}
+.sheet .note2{font-size:.85rem;color:var(--muted);margin:0}
+.copyrow{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.copyrow code{font:500 .8rem var(--f-mono);background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:6px 8px;overflow-wrap:anywhere;user-select:all;flex:1 1 220px;min-width:0}
+.ro{display:none}
+body.readonly .ro{display:inline}
+body.readonly .w{display:none!important}
+body.readonly .grid{grid-template-columns:minmax(0,1fr)}
+@media (prefers-reduced-motion:no-preference){.row{transition:background .15s}.row:hover{background:color-mix(in srgb,var(--bg) 50%,transparent)}}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <div class="top">
+      <div class="brand"><h1>Coursebook</h1><span class="status" id="status">Loading…</span></div>
+      <div class="topright">
+        <label class="filter" for="filter">Showing
+          <select id="filter" style="width:auto"><option value="">All subjects</option></select>
+        </label>
+        <button type="button" class="ghost" id="install-open">Install &amp; backup</button>
+      </div>
+    </div>
+    <nav role="tablist" aria-label="Sections">
+      <a href="#subjects" role="tab" data-tab="subjects">Subjects <span class="n" id="n-subjects">0</span></a>
+      <a href="#activities" role="tab" data-tab="activities">Activities <span class="n" id="n-activities">0</span></a>
+      <a href="#links" role="tab" data-tab="links">Links <span class="n" id="n-links">0</span></a>
+      <a href="#comments" role="tab" data-tab="comments">Comments <span class="n" id="n-comments">0</span></a>
+      <a href="#remarks" role="tab" data-tab="remarks">Teacher Remarks <span class="n" id="n-remarks">0</span></a>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap">
+  <section id="sec-subjects" data-sec="subjects">
+    <h2>Subjects</h2>
+    <p class="lede">Every activity, link and comment belongs to a subject. Pick a color so each one is easy to spot across the app.</p>
+    <div class="grid">
+      <form class="panel w" id="f-subject" autocomplete="off">
+        <h3>Add a subject</h3>
+        <label for="s-name">Name<input id="s-name" name="name" required maxlength="80" placeholder="e.g. Biology"></label>
+        <label for="s-teacher">Teacher<input id="s-teacher" name="teacher" maxlength="80" placeholder="Optional"></label>
+        <div><span class="hint">Color</span>
+          <div class="swatches" role="radiogroup" aria-label="Color">
+            <label><input type="radio" name="color" value="0" id="c0" checked><span style="background:var(--s0)"></span></label>
+            <label><input type="radio" name="color" value="1" id="c1"><span style="background:var(--s1)"></span></label>
+            <label><input type="radio" name="color" value="2" id="c2"><span style="background:var(--s2)"></span></label>
+            <label><input type="radio" name="color" value="3" id="c3"><span style="background:var(--s3)"></span></label>
+            <label><input type="radio" name="color" value="4" id="c4"><span style="background:var(--s4)"></span></label>
+            <label><input type="radio" name="color" value="5" id="c5"><span style="background:var(--s5)"></span></label>
+          </div>
+        </div>
+        <button class="btn" type="submit">Add subject</button>
+      </form>
+      <div class="list" id="list-subjects"></div>
+    </div>
+  </section>
+
+  <section id="sec-activities" data-sec="activities" hidden>
+    <h2>Activities</h2>
+    <p class="lede">Homework, projects and exams with their markings. Click a slice or a marking in the legend to show only those activities. Clicked the wrong marking? Use the buttons on each activity to set it right.</p>
+    <div class="dash">
+      <svg id="pie" viewBox="0 0 200 200" role="img" aria-label="Pie chart of activities by marking"></svg>
+      <div>
+        <div class="prog">
+          <span class="eyebrow">Progress</span>
+          <span class="big" id="prog-pct">0%</span>
+          <span class="sub" id="prog-sub">No activities yet</span>
+          <div class="bar" id="prog-bar" aria-hidden="true"></div>
+        </div>
+        <div class="legend" id="legend" role="group" aria-label="Filter by marking">
+          <button data-act="sfilter" data-v="all"><i style="background:var(--muted)"></i><span>All activities</span><span class="cnt" data-c>0 tasks</span><span class="pc" data-p>100%</span></button>
+          <button data-act="sfilter" data-v="submitted"><i style="background:var(--ok)"></i><span>Submitted</span><span class="cnt" data-c>0 tasks</span><span class="pc" data-p>0%</span></button>
+          <button data-act="sfilter" data-v="ongoing"><i style="background:var(--warn)"></i><span>Ongoing</span><span class="cnt" data-c>0 tasks</span><span class="pc" data-p>0%</span></button>
+          <button data-act="sfilter" data-v="notcomplete"><i style="background:var(--bad)"></i><span>Not Complete</span><span class="cnt" data-c>0 tasks</span><span class="pc" data-p>0%</span></button>
+        </div>
+      </div>
+    </div>
+    <div class="grid">
+      <form class="panel w" id="f-activity" autocomplete="off">
+        <h3>Add an activity</h3>
+        <label for="a-title">Title<input id="a-title" name="title" required maxlength="140" placeholder="e.g. Lab report: osmosis"></label>
+        <label for="a-subject">Subject<select id="a-subject" name="subjectId" data-subjects required></select></label>
+        <label for="a-due">Due date<input id="a-due" name="due" type="date"></label>
+        <label for="a-status">Status<select id="a-status" name="status">
+          <option value="notcomplete">Not Complete</option>
+          <option value="ongoing">Ongoing</option>
+          <option value="submitted">Submitted</option>
+        </select></label>
+        <label for="a-notes">Notes<textarea id="a-notes" name="notes" maxlength="1000" placeholder="Instructions, page numbers, rubric…"></textarea></label>
+        <div class="flinks">
+          <span class="flabel">Links</span>
+          <div id="a-links"></div>
+          <button type="button" class="ghost" id="a-addlink">+ Add another link</button>
+        </div>
+        <button class="btn" type="submit">Add activity</button>
+      </form>
+      <div class="list" id="list-activities"></div>
+    </div>
+  </section>
+
+  <section id="sec-links" data-sec="links" hidden>
+    <h2>Links</h2>
+    <p class="lede">Class pages, readings, videos and shared docs. Attach a link to an activity and it also appears on that activity.</p>
+    <div class="grid">
+      <form class="panel w" id="f-link" autocomplete="off">
+        <h3>Add a link</h3>
+        <label for="l-title">Title<input id="l-title" name="title" required maxlength="140" placeholder="e.g. Chapter 4 slides"></label>
+        <label for="l-url">Web address<input id="l-url" name="url" required maxlength="2000" placeholder="https://…" inputmode="url"></label>
+        <label for="l-subject">Subject<select id="l-subject" name="subjectId" data-subjects required></select></label>
+        <label for="l-activity">For activity<select id="l-activity" name="activityId"><option value="">General</option></select></label>
+        <button class="btn" type="submit">Add link</button>
+      </form>
+      <div class="list" id="list-links"></div>
+    </div>
+  </section>
+
+  <section id="sec-comments" data-sec="comments" hidden>
+    <h2>Comments</h2>
+    <p class="lede">Your course report: notes about a subject or activity, with photos, screenshots and videos attached. You can also paste a screenshot straight into the comment box.</p>
+    <div class="grid">
+      <form class="panel w" id="f-comment" autocomplete="off">
+        <h3>Add a comment</h3>
+        <label for="c-subject">Subject<select id="c-subject" name="subjectId" data-subjects required></select></label>
+        <label for="c-activity">About activity<select id="c-activity" name="activityId"><option value="">General</option></select></label>
+        <label for="c-text">Comment<textarea id="c-text" name="text" maxlength="2000" placeholder="Write a comment, or paste a screenshot…"></textarea></label>
+        <div class="flinks" id="att-area">
+          <span class="flabel">Attachments</span>
+          <div class="attbtns">
+            <button type="button" class="ghost" data-pick="proof">+ Photo/Screenshot/Video Proof</button>
+          </div>
+          <div class="pending" id="att-pending"></div>
+          <p class="hint" id="att-hint">Checking whether you can attach files…</p>
+        </div>
+        <input type="file" id="att-file" multiple hidden>
+        <button class="btn" type="submit" id="c-post">Post comment</button>
+      </form>
+      <div class="stack">
+        <div class="seg" id="c-tabs" role="group" aria-label="Comment views">
+          <button type="button" data-act="ctab" data-v="comments">Comments <span class="c">0</span></button>
+          <button type="button" data-act="ctab" data-v="proof">Photo/Screenshot/Video Proof <span class="c">0</span></button>
+        </div>
+        <div class="list" id="list-comments"></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="sec-remarks" data-sec="remarks" hidden>
+    <h2>Teacher Remarks</h2>
+    <p class="lede">Feedback from your teachers: praise, notes, and things they want you to fix. Open actions are listed first until you mark them done.</p>
+    <div class="grid">
+      <form class="panel w" id="f-remark" autocomplete="off">
+        <h3>Add a remark</h3>
+        <label for="r-subject">Subject<select id="r-subject" name="subjectId" data-subjects required></select></label>
+        <label for="r-activity">About activity<select id="r-activity" name="activityId"><option value="">General</option></select></label>
+        <label for="r-kind">Type<select id="r-kind" name="kind">
+          <option value="note">Note</option>
+          <option value="praise">Praise</option>
+          <option value="action">Action needed</option>
+        </select></label>
+        <label for="r-date">Date received<input id="r-date" name="date" type="date"></label>
+        <label for="r-text">Remark<textarea id="r-text" name="text" maxlength="2000" placeholder="What did the teacher say? You can paste a screenshot…"></textarea></label>
+        <div class="flinks" id="ratt-area">
+          <span class="flabel">Attachments</span>
+          <div class="attbtns">
+            <button type="button" class="ghost" data-pick="proof">+ Photo/Screenshot/Video Proof</button>
+          </div>
+          <div class="pending" id="ratt-pending"></div>
+          <p class="hint" id="ratt-hint">Checking whether you can attach files…</p>
+        </div>
+        <input type="file" id="ratt-file" multiple hidden>
+        <button class="btn" type="submit" id="r-post">Add remark</button>
+      </form>
+      <div class="list" id="list-remarks"></div>
+    </div>
+  </section>
+</main>
+<div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+<div class="lightbox" id="lb" hidden role="dialog" aria-label="Photo viewer"><img alt=""></div>
+<div class="sheet" id="install" hidden role="dialog" aria-modal="true" aria-labelledby="install-title">
+  <div class="card">
+    <h2 id="install-title">Install &amp; backup</h2>
+    <section class="sheet-sec">
+      <h3>Install on this device</h3>
+      <p class="note2" id="inst-state">Checking…</p>
+      <button type="button" class="btn" id="inst-btn" hidden>Install Coursebook</button>
+      <div id="inst-ios" hidden>
+        <ol>
+          <li>Open Coursebook in <strong>Safari</strong>.</li>
+          <li>Tap the <strong>Share</strong> button (the square with an arrow pointing up).</li>
+          <li>Scroll down and tap <strong>Add to Home Screen</strong>, then tap <strong>Add</strong>.</li>
+        </ol>
+      </div>
+      <div id="inst-other" hidden>
+        <ol>
+          <li><strong>Android (Chrome):</strong> tap <strong>⋮</strong>, then <strong>Install app</strong> or <strong>Add to Home screen</strong>.</li>
+          <li><strong>Computer (Chrome or Edge):</strong> click the install icon at the right end of the address bar, or open the menu and choose <strong>Install Coursebook</strong>.</li>
+          <li><strong>Safari on Mac:</strong> choose <strong>File</strong> → <strong>Add to Dock</strong>.</li>
+        </ol>
+      </div>
+    </section>
+    <section class="sheet-sec">
+      <h3>Saved on this device</h3>
+      <p class="note2" id="store-state">Everything you add is saved on this device and works without internet. Nothing is uploaded.</p>
+      <p class="note2">Clearing this browser's site data, or removing the app, erases what's saved. Download a backup now and then, and use it to move Coursebook to another device.</p>
+      <div class="copyrow">
+        <button type="button" class="btn" id="bk-save">Download backup</button>
+        <button type="button" class="ghost" id="bk-load">Restore from backup</button>
+      </div>
+      <input type="file" id="bk-file" accept="application/json,.json" hidden>
+      <div class="confirm" id="bk-confirm" hidden>
+        <p id="bk-msg"></p>
+        <div class="copyrow">
+          <button type="button" class="btn danger" id="bk-go">Replace my data</button>
+          <button type="button" class="ghost" id="bk-cancel">Cancel</button>
+        </div>
+      </div>
+    </section>
+    <button type="button" class="ghost" id="install-close">Done</button>
+  </div>
+</div>
+
+<script>
+(() => {
+const TABS = ["subjects","activities","links","comments","remarks"];
+const COLS = ["subjects","activities","links","comments","remarks"];
+const state = {subjects:[],activities:[],links:[],comments:[],remarks:[]};
+const todayStr = () => { const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; };
+const ST = {notcomplete:{t:"Not Complete",k:"bad"}, ongoing:{t:"Ongoing",k:"warn"}, submitted:{t:"Submitted",k:"ok"}};
+const st = a => a.status==="submitted" ? "submitted" : a.status==="ongoing" ? "ongoing" : "notcomplete";
+let afilter = "all", sfilter = "all";
+try { const v=localStorage.getItem("cb-sfilter"); if(v && (v==="all" || v in ST)) sfilter=v; } catch {}
+const PIE_ORDER = ["submitted","ongoing","notcomplete"];
+const PIE_COL = {submitted:"var(--ok)", ongoing:"var(--warn)", notcomplete:"var(--bad)"};
+try { const v=localStorage.getItem("cb-afilter"); if(v && (v==="all" || v in ST)) afilter=v; } catch {}
+const KINDS = {photo:"Photo", screenshot:"Screenshot", video:"Video"};
+const lastHTML = {};
+let assets = null, ctab = "comments";
+try { const v=localStorage.getItem("cb-ctab"); if(v==="comments" || v==="proof") ctab=v; else if(v in KINDS) ctab="proof"; } catch {}
+const KIND = {praise:{t:"Praise",k:"ok"}, note:{t:"Note",k:"muted"}, action:{t:"Action needed",k:"warn"}};
+const loaded = {};
+let db = null, user = null, myId = null, mode = "loading", filter = "";
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+
+try { filter = localStorage.getItem("cb-filter") || ""; } catch {}
+
+/* ---------- helpers ---------- */
+let toastT;
+function toast(msg){ const t=$("#toast"); t.textContent=msg; t.hidden=false; clearTimeout(toastT); toastT=setTimeout(()=>t.hidden=true,3200); }
+function setStatus(s){ $("#status").textContent=s; }
+const subj = id => state.subjects.find(s => s.id === id);
+function chip(id){
+  const s = subj(id);
+  if(!s) return `<span class="chip"><i style="background:var(--line)"></i>No subject</span>`;
+  return `<span class="chip"><i style="background:var(--s${Number(s.color)%6||0})"></i>${esc(s.name)}</span>`;
+}
+const pass = x => !filter || x.subjectId === filter;
+function parseDay(d){ const [y,m,dd]=String(d).split("-").map(Number); return new Date(y,(m||1)-1,dd||1); }
+const fmtDay = dt => dt.toLocaleDateString(undefined,{weekday:"short",month:"short",day:"numeric"});
+const fmtTime = ms => new Date(ms).toLocaleDateString(undefined,{month:"short",day:"numeric",year:"numeric"});
+function dueInfo(d){
+  if(!d) return {t:"No due date",k:"muted"};
+  const today=new Date(); today.setHours(0,0,0,0);
+  const diff=Math.round((parseDay(d)-today)/864e5);
+  if(diff<0) return {t:`${-diff} day${diff<-1?"s":""} overdue`,k:"bad"};
+  if(diff===0) return {t:"Due today",k:"warn"};
+  if(diff===1) return {t:"Due tomorrow",k:"warn"};
+  if(diff<=7) return {t:`Due in ${diff} days`,k:"warn"};
+  return {t:"Due "+fmtDay(parseDay(d)),k:"muted"};
+}
+function ago(ms){
+  const m=Math.round((Date.now()-ms)/6e4);
+  if(m<1) return "just now"; if(m<60) return m+" min ago";
+  const h=Math.round(m/60); if(h<24) return h+" h ago";
+  const d=Math.round(h/24); if(d<7) return d+" d ago";
+  return fmtTime(ms);
+}
+function safeUrl(u){
+  u=String(u||"").trim(); if(!u) return null;
+  if(!/^[a-z]+:/i.test(u)) u="https://"+u;
+  try{ const x=new URL(u); return /^https?:$/.test(x.protocol)?x.href:null; }catch{ return null; }
+}
+const host = u => { try{ return new URL(u).hostname.replace(/^www\./,""); }catch{ return ""; } };
+const rid = () => Math.random().toString(36).slice(2,12);
+
+/* ---------- device storage (IndexedDB) ---------- */
+const DB_NAME="coursebook", DB_VER=1, STORES=[...COLS,"files"];
+let idb=null;
+const reqP = r => new Promise((res,rej)=>{ r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error); });
+const done = t => new Promise((res,rej)=>{ t.oncomplete=()=>res(); t.onerror=()=>rej(t.error); t.onabort=()=>rej(t.error||new Error("aborted")); });
+function openDB(){
+  return new Promise((res,rej)=>{
+    if(!("indexedDB" in window)) return rej(new Error("no indexedDB"));
+    const r=indexedDB.open(DB_NAME,DB_VER);
+    r.onupgradeneeded=()=>{ const d=r.result; STORES.forEach(s=>{ if(!d.objectStoreNames.contains(s)) d.createObjectStore(s,{keyPath:"id"}); }); };
+    r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error); r.onblocked=()=>rej(new Error("blocked"));
+  });
+}
+const idbAll = store => reqP(idb.transaction(store).objectStore(store).getAll());
+async function idbPut(store,val){ const t=idb.transaction(store,"readwrite"); t.objectStore(store).put(val); return done(t); }
+async function idbDel(store,id){ const t=idb.transaction(store,"readwrite"); t.objectStore(store).delete(id); return done(t); }
+const bc = "BroadcastChannel" in window ? new BroadcastChannel("coursebook") : null;
+const bcPost = () => { try{ bc && bc.postMessage("changed"); }catch{} };
+const newId = () => rid() + Date.now().toString(36);
+function onErr(e){
+  if(e && e.name==="QuotaExceededError") toast("This device is out of storage space. Delete some files or old items, then try again.");
+  else toast("That change didn't save on this device. Try again.");
+}
+async function add(col,data){
+  data.createdAt=Date.now(); data.authorId=myId;
+  const rec={id:newId(),...data};
+  if(idb){ try{ await idbPut(col,rec); }catch(e){ onErr(e); return null; } }
+  state[col].push(rec); render(); bcPost(); return rec.id;
+}
+async function upd(col,id,patch){
+  const x=state[col].find(r=>r.id===id); if(!x) return;
+  if(idb){ try{ await idbPut(col,{...x,...patch}); }catch(e){ onErr(e); return; } }
+  Object.assign(x,patch); render(); bcPost();
+}
+async function del(col,id){
+  if(idb){ try{ await idbDel(col,id); }catch(e){ onErr(e); return; } }
+  state[col]=state[col].filter(r=>r.id!==id); render(); bcPost();
+}
+/* attachments saved on the device */
+const fileURLs=new Map();
+const deviceAssets={
+  async upload(blob){
+    const id="f"+newId(), rec={id,blob,type:blob.type,size:blob.size,createdAt:Date.now()};
+    if(idb){ try{ await idbPut("files",rec); }catch(e){ throw {code: e&&e.name==="QuotaExceededError" ? "quota_or_state" : "upstream_error"}; } }
+    fileURLs.set(id,URL.createObjectURL(blob)); bcPost();
+    return {id,url:fileURLs.get(id),contentType:blob.type,sizeBytes:blob.size};
+  },
+  async delete(id){
+    if(idb) await idbDel("files",id);
+    const u=fileURLs.get(id); if(u){ URL.revokeObjectURL(u); fileURLs.delete(id); }
+    bcPost(); return {deleted:true};
+  }
+};
+async function reloadAll(){
+  for(const col of COLS){ try{ state[col]=idb ? await idbAll(col) : state[col]; }catch{ state[col]=[]; } loaded[col]=true; }
+  if(idb){
+    fileURLs.forEach(u=>URL.revokeObjectURL(u)); fileURLs.clear();
+    try{ for(const f of await idbAll("files")) if(f && f.blob) fileURLs.set(f.id,URL.createObjectURL(f.blob)); }catch{}
+  }
+  Object.keys(lastHTML).forEach(k=>delete lastHTML[k]);
+  render();
+}
+if(bc) bc.onmessage=()=>reloadAll();
+
+/* ---------- rendering ---------- */
+function empty(title,text){ return `<div class="empty"><strong>${esc(title)}</strong>${esc(text)}</div>`; }
+function setList(id,html){
+  const el=document.getElementById(id);
+  const a=document.activeElement;
+  if(lastHTML[id]===html) return;
+  if(a && el.contains(a) && /INPUT|TEXTAREA/.test(a.tagName)){ el.dataset.stale="1"; return; }
+  if([...el.querySelectorAll("video")].some(v=>!v.paused)){ el.dataset.stale="1"; return; }
+  el.dataset.stale=""; el.innerHTML=html; lastHTML[id]=html;
+}
+const delBtn = (col,id,label="Delete") => `<button class="ghost danger w" data-act="del" data-col="${col}" data-id="${esc(id)}">${label}</button>`;
+const isLoading = col => mode!=="local" && !loaded[col];
+
+function renderSubjects(){
+  const rows=[...state.subjects].sort((a,b)=>String(a.name).localeCompare(String(b.name))).map(s=>{
+    const todo=state.activities.filter(a=>a.subjectId===s.id&&a.status!=="submitted").length;
+    const done=state.activities.filter(a=>a.subjectId===s.id&&a.status==="submitted").length;
+    const links=state.links.filter(l=>l.subjectId===s.id).length;
+    return `<div class="row"><div class="body">
+      <div class="title">${chip(s.id)}</div>
+      <div class="meta">${s.teacher?`<span>${esc(s.teacher)}</span>`:""}<span class="counts">${todo} to do · ${done} submitted · ${links} link${links===1?"":"s"}</span></div>
+    </div><div class="actions">
+      <button class="ghost" data-act="focus" data-id="${esc(s.id)}">Show only this</button>${delBtn("subjects",s.id)}
+    </div></div>`;
+  }).join("");
+  setList("list-subjects", rows || (isLoading("subjects") ? empty("Loading subjects…","") : empty("No subjects yet","Add your first class with the form, like Math or History.")));
+}
+function drawPie(n,total){
+  const svg=$("#pie"), cx=100, cy=100, r=94;
+  svg.classList.toggle("focus", sfilter!=="all");
+  if(!total){ svg.innerHTML=`<circle cx="100" cy="100" r="${r}" style="fill:var(--line)"/><text x="100" y="100" text-anchor="middle" dominant-baseline="central" style="fill:var(--muted);font:500 13px var(--f-body)">No activities</text>`; return; }
+  let a0=-Math.PI/2, shapes="", labels="";
+  PIE_ORDER.forEach(v=>{
+    const c=n[v]; if(!c) return;
+    const frac=c/total, a1=a0+frac*2*Math.PI, on = sfilter===v ? " on" : "";
+    const tip=`<title>${ST[v].t}: ${c} task${c===1?"":"s"} (${Math.round(frac*100)}%)</title>`;
+    if(frac>0.9999){ shapes+=`<circle cx="${cx}" cy="${cy}" r="${r}" data-v="${v}" class="${on}" style="fill:${PIE_COL[v]}">${tip}</circle>`; }
+    else {
+      const x0=cx+r*Math.cos(a0), y0=cy+r*Math.sin(a0), x1=cx+r*Math.cos(a1), y1=cy+r*Math.sin(a1);
+      shapes+=`<path d="M${cx} ${cy} L${x0.toFixed(2)} ${y0.toFixed(2)} A${r} ${r} 0 ${frac>.5?1:0} 1 ${x1.toFixed(2)} ${y1.toFixed(2)}Z" data-v="${v}" class="${on}" style="fill:${PIE_COL[v]};stroke:var(--surface);stroke-width:2;stroke-linejoin:round">${tip}</path>`;
+    }
+    if(frac>=0.07){
+      const m=(a0+a1)/2, lr = frac>0.9999 ? 0 : r*0.6;
+      labels+=`<text x="${(cx+lr*Math.cos(m)).toFixed(1)}" y="${(cy+lr*Math.sin(m)).toFixed(1)}" text-anchor="middle" dominant-baseline="central" style="fill:var(--surface);font:600 14px var(--f-mono);pointer-events:none">${Math.round(frac*100)}%</text>`;
+    }
+    a0=a1;
+  });
+  svg.innerHTML=shapes+labels;
+}
+const statusSeg = a => `<div class="seg w" role="group" aria-label="Change marking">${Object.entries(ST).map(([v,o])=>`<button data-act="status" data-id="${esc(a.id)}" data-v="${v}" class="${v}" aria-pressed="${st(a)===v}">${o.t}</button>`).join("")}</div>`;
+const linkA = (url,text) => { const u=safeUrl(url); return u ? `<a href="${esc(u)}" target="_blank" rel="noopener noreferrer">${esc(text)}</a>` : esc(text); };
+function renderActivities(){
+  const all=state.activities.filter(pass);
+  const n={notcomplete:0,ongoing:0,submitted:0}; all.forEach(a=>n[st(a)]++);
+  const total=all.length, pct=v=> total ? Math.round(n[v]/total*100) : 0;
+  drawPie(n,total);
+  $("#prog-pct").textContent = pct("submitted")+"%";
+  $("#prog-sub").textContent = total ? `${n.submitted} of ${total} task${total===1?"":"s"} submitted · ${n.ongoing} ongoing · ${n.notcomplete} not complete` : "No activities yet. Add one with the form below.";
+  $("#prog-bar").innerHTML = total ? PIE_ORDER.map(v=>`<span style="width:${n[v]/total*100}%;background:${PIE_COL[v]}"></span>`).join("") : "";
+  document.querySelectorAll("#legend button").forEach(b=>{
+    const v=b.dataset.v, c = v==="all" ? total : n[v];
+    b.setAttribute("aria-pressed",String(v===sfilter));
+    b.querySelector("[data-c]").textContent=`${c} task${c===1?"":"s"}`;
+    b.querySelector("[data-p]").textContent = v==="all" ? (total?"100%":"0%") : pct(v)+"%";
+  });
+  const order={ongoing:0,notcomplete:1,submitted:2};
+  const list=all.filter(a=>sfilter==="all"||st(a)===sfilter)
+    .sort((a,b)=>order[st(a)]-order[st(b)] || (a.due||"9999").localeCompare(b.due||"9999"));
+  const rows=list.map(a=>{
+    const s=st(a), d=dueInfo(a.due), id=esc(a.id);
+    let when;
+    if(s==="submitted"){
+      let pill="";
+      if(a.due && a.submittedAt){ const end=parseDay(a.due); end.setHours(23,59,59,999); pill = a.submittedAt<=end ? `<span class="pill ok">On time</span>` : `<span class="pill bad">Late</span>`; }
+      when = `${pill}<span class="mono">Submitted ${a.submittedAt?fmtTime(a.submittedAt):""}</span>${a.grade?`<span class="pill muted">Grade ${esc(a.grade)}</span>`:""}`;
+    } else when = `<span class="pill ${d.k}">${esc(d.t)}</span>`;
+    const ls=state.links.filter(l=>l.activityId===a.id);
+    const sub=safeUrl(a.submissionUrl);
+    return `<div class="row"><div class="body">
+      <div class="meta">${chip(a.subjectId)}<span class="pill ${ST[s].k} ro">${ST[s].t}</span>${when}</div>
+      <div class="title">${esc(a.title)}</div>
+      ${a.notes?`<div class="note">${esc(a.notes)}</div>`:""}
+      ${ls.length?`<div class="alinks"><span class="lbl">Links</span>${ls.map(l=>linkA(l.url,l.title)).join("")}</div>`:""}
+      ${s==="submitted" && sub?`<div class="alinks"><span class="lbl">Submission</span><a href="${esc(sub)}" target="_blank" rel="noopener noreferrer">${esc(host(sub))}</a></div>`:""}
+      ${s==="submitted"?`<div class="inline w">
+        <label for="su-${id}">Submission link<input id="su-${id}" data-field="submissionUrl" data-id="${id}" value="${esc(a.submissionUrl||"")}" placeholder="https://…" inputmode="url"></label>
+        <label class="sm" for="gr-${id}">Grade<input id="gr-${id}" data-field="grade" data-id="${id}" value="${esc(a.grade||"")}" maxlength="20" placeholder="—"></label>
+      </div>`:""}
+    </div><div class="actions">${statusSeg(a)}<button class="ghost w" data-act="addlink" data-id="${id}">Add link</button>${delBtn("activities",a.id)}</div></div>`;
+  }).join("");
+  setList("list-activities", rows || (isLoading("activities") ? empty("Loading activities…","") :
+    !state.subjects.length ? empty("No activities yet","Add a subject first, then add its activities here.") :
+    sfilter!=="all" ? empty(`No ${ST[sfilter].t} activities`,"Choose another marking in the legend, or add an activity with the form.") :
+    empty("No activities yet","Add homework, a project or an exam with the form.")));
+}
+function renderLinks(){
+  const list=state.links.filter(pass).sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
+  const rows=list.map(l=>{ const u=safeUrl(l.url), act=l.activityId&&state.activities.find(a=>a.id===l.activityId); return `<div class="row"><div class="body">
+      <div class="meta">${chip(l.subjectId)}${act?`<span>for “${esc(act.title)}”</span>`:""}<span class="mono">${esc(host(u||""))}</span></div>
+      <div class="title">${linkA(l.url,l.title)}</div>
+    </div><div class="actions">${delBtn("links",l.id)}</div></div>`; }).join("");
+  setList("list-links", rows || (isLoading("links") ? empty("Loading links…","") : empty("No links yet","Save class pages, readings and videos with the form.")));
+}
+const blobUrl = id => fileURLs.get(id) || "";
+function media(a){
+  if(!blobUrl(a.id)) return `<div class="missing">File unavailable</div>`;
+  const u=esc(blobUrl(a.id)), alt=esc(a.name||KINDS[a.kind]||"Attachment");
+  return a.kind==="video" ? `<video controls preload="metadata" playsinline src="${u}" aria-label="${alt}"></video>` : `<img loading="lazy" src="${u}" alt="${alt}" data-zoom>`;
+}
+async function renderComments(){
+  const list=state.comments.filter(pass).sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
+  const all=[]; list.forEach(c=>(Array.isArray(c.attachments)?c.attachments:[]).forEach(a=>{ if(a&&a.id&&KINDS[a.kind]) all.push({a,c}); }));
+  document.querySelectorAll("#c-tabs button").forEach(b=>{
+    const v=b.dataset.v; b.setAttribute("aria-pressed",String(v===ctab));
+    b.querySelector(".c").textContent = v==="comments" ? list.length : all.length;
+  });
+  const actOf = c => c.activityId && state.activities.find(a=>a.id===c.activityId);
+  const who = c => `<strong class="who" data-uid="${esc(c.authorId||"")}" style="color:var(--ink)">${esc(c.authorLabel||"Someone")}</strong>`;
+  let html;
+  if(ctab==="comments"){
+    html=list.map(c=>{ const act=actOf(c), atts=(Array.isArray(c.attachments)?c.attachments:[]).filter(a=>a&&a.id&&KINDS[a.kind]); return `<div class="row"><div class="body">
+      <div class="meta">${who(c)}<span class="mono">${c.createdAt?ago(c.createdAt):""}</span>${chip(c.subjectId)}${act?`<span>on “${esc(act.title)}”</span>`:""}</div>
+      ${c.text?`<div class="note" style="color:var(--ink)">${esc(c.text)}</div>`:""}
+      ${atts.length?`<div class="atts">${atts.map(a=>`<figure class="att">${media(a)}<figcaption>${KINDS[a.kind]}</figcaption></figure>`).join("")}</div>`:""}
+    </div><div class="actions">${delBtn("comments",c.id)}</div></div>`; }).join("");
+    html = html || (isLoading("comments") ? empty("Loading comments…","") : empty("No comments yet","Post a note about a subject or activity, and attach photos, screenshots or videos."));
+  } else {
+    const items=all;
+    html = items.length ? `<div class="gallery">${items.map(({a,c})=>{ const act=actOf(c); return `<figure class="gcard">${media(a)}<figcaption>
+        <div class="meta">${chip(c.subjectId)}<span class="mono">${c.createdAt?ago(c.createdAt):""}</span></div>
+        ${act?`<div class="meta"><span>on “${esc(act.title)}”</span></div>`:""}
+        ${c.text?`<div class="gtext">${esc(c.text)}</div>`:""}
+        <button class="ghost danger w" data-act="rmatt" data-cid="${esc(c.id)}" data-aid="${esc(a.id)}">Remove</button>
+      </figcaption></figure>`; }).join("")}</div>`
+      : (isLoading("comments") ? empty("Loading…","") : empty("No proof yet","Attach a photo, screenshot or video to a comment with the form."));
+  }
+  setList("list-comments", html);
+  const ids=[...new Set(list.map(c=>c.authorId).filter(Boolean))];
+  if(user && ids.length && user.profiles){
+    try{ const ps=await user.profiles(ids);
+      document.querySelectorAll("#list-comments .who[data-uid]").forEach(el=>{ const p=ps&&ps[el.dataset.uid]; if(el.dataset.uid) el.textContent = el.dataset.uid===myId ? "You" : ((p&&p.name)||"Someone"); });
+    }catch{}
+  } else if(myId){ document.querySelectorAll(`#list-comments .who[data-uid="${CSS.escape(myId)}"]`).forEach(el=>el.textContent="You"); }
+}
+function renderRemarks(){
+  const rank = r => r.kind==="action" && !r.resolved ? 0 : 1;
+  const list=state.remarks.filter(pass).sort((a,b)=> rank(a)-rank(b) || String(b.date||"").localeCompare(String(a.date||"")) || (b.createdAt||0)-(a.createdAt||0));
+  const rows=list.map(r=>{
+    const k=KIND[r.kind]||KIND.note, s=subj(r.subjectId);
+    const act=r.activityId&&state.activities.find(a=>a.id===r.activityId);
+    const pill = r.kind==="action" && r.resolved ? `<span class="pill ok">Done</span>` : `<span class="pill ${k.k}">${k.t}</span>`;
+    return `<div class="row"><div class="body">
+      <div class="meta">${chip(r.subjectId)}${pill}${r.date?`<span class="mono">${esc(fmtDay(parseDay(r.date)))}</span>`:""}</div>
+      ${r.text?`<div class="note" style="color:var(--ink)${r.resolved?";text-decoration:line-through;opacity:.7":""}">${esc(r.text)}</div>`:""}
+      ${(()=>{ const atts=(Array.isArray(r.attachments)?r.attachments:[]).filter(a=>a&&a.id&&KINDS[a.kind]); return atts.length?`<div class="atts">${atts.map(a=>`<figure class="att">${media(a)}<figcaption>${KINDS[a.kind]}</figcaption></figure>`).join("")}</div>`:""; })()}
+      <div class="meta">${s&&s.teacher?`<span>From ${esc(s.teacher)}</span>`:""}${act?`<span>on “${esc(act.title)}”</span>`:""}</div>
+    </div><div class="actions">
+      ${r.kind==="action"?`<button class="ghost ${r.resolved?"":"go "}w" data-act="resolve" data-id="${esc(r.id)}">${r.resolved?"Reopen":"Mark done"}</button>`:""}${delBtn("remarks",r.id)}
+    </div></div>`;
+  }).join("");
+  setList("list-remarks", rows || (isLoading("remarks") ? empty("Loading remarks…","") : empty("No remarks yet","Write down feedback from your teachers so you can act on it.")));
+}
+function fillSelects(){
+  const subs=[...state.subjects].sort((a,b)=>String(a.name).localeCompare(String(b.name)));
+  const opts=subs.map(s=>`<option value="${esc(s.id)}">${esc(s.name)}</option>`).join("");
+  document.querySelectorAll("select[data-subjects]").forEach(sel=>{
+    const v=sel.value||filter;
+    sel.innerHTML = subs.length ? opts : `<option value="">Add a subject first</option>`;
+    if(subs.some(s=>s.id===v)) sel.value=v;
+  });
+  const f=$("#filter");
+  f.innerHTML=`<option value="">All subjects</option>`+opts;
+  if(filter && !subs.some(s=>s.id===filter) && loaded.subjects) filter="";
+  f.value=filter;
+  [["#c-subject","#c-activity"],["#r-subject","#r-activity"],["#l-subject","#l-activity"]].forEach(([sq,aq])=>{
+    const cs=$(sq).value, ca=$(aq), cv=ca.value;
+    ca.innerHTML=`<option value="">General</option>`+state.activities.filter(a=>a.subjectId===cs).map(a=>`<option value="${esc(a.id)}">${esc(a.title)}</option>`).join("");
+    if([...ca.options].some(o=>o.value===cv)) ca.value=cv;
+  });
+  document.querySelectorAll("form.panel .btn").forEach(b=>{ if(b.closest("#f-subject")) return; b.disabled=!subs.length; });
+}
+function counts(){
+  $("#n-subjects").textContent=state.subjects.length;
+  $("#n-activities").textContent=state.activities.filter(pass).length;
+  $("#n-links").textContent=state.links.filter(pass).length;
+  $("#n-comments").textContent=state.comments.filter(pass).length;
+  $("#n-remarks").textContent=state.remarks.filter(pass).length;
+}
+function render(){ fillSelects(); counts(); renderSubjects(); renderActivities(); renderLinks(); renderComments(); renderRemarks(); }
+
+/* ---------- tabs ---------- */
+function showTab(){
+  let t=location.hash.slice(1); if(t==="submitted"||t==="status") t="activities"; if(!TABS.includes(t)) t="subjects";
+  document.querySelectorAll("section[data-sec]").forEach(s=>s.hidden=s.dataset.sec!==t);
+  document.querySelectorAll("nav a").forEach(a=>a.setAttribute("aria-selected",String(a.dataset.tab===t)));
+}
+addEventListener("hashchange",showTab);
+
+/* ---------- events ---------- */
+$("#filter").addEventListener("change",e=>{ filter=e.target.value; try{localStorage.setItem("cb-filter",filter);}catch{} render(); });
+$("#c-subject").addEventListener("change",fillSelects);
+$("#l-subject").addEventListener("change",fillSelects);
+let lrowN=0;
+function addLinkRow(focus){
+  const n=++lrowN, d=document.createElement("div"); d.className="lrow";
+  d.innerHTML=`<input class="lt" id="a-lt-${n}" maxlength="140" placeholder="Link title (optional)" aria-label="Link title">
+    <input class="lu" id="a-lu-${n}" maxlength="2000" placeholder="https://…" inputmode="url" aria-label="Web address">
+    <button type="button" class="ghost danger" data-rmlink aria-label="Remove this link">Remove</button>`;
+  $("#a-links").appendChild(d);
+  if(focus) d.querySelector(".lt").focus();
+}
+function resetLinkRows(){ $("#a-links").innerHTML=""; addLinkRow(false); }
+resetLinkRows();
+$("#a-addlink").addEventListener("click",()=>addLinkRow(true));
+$("#a-links").addEventListener("click",e=>{
+  if(!e.target.closest("[data-rmlink]")) return;
+  const row=e.target.closest(".lrow");
+  if($("#a-links").children.length>1) row.remove(); else row.querySelectorAll("input").forEach(i=>i.value="");
+});
+$("#r-subject").addEventListener("change",fillSelects);
+$("#r-date").value=todayStr();
+
+const val = (f,n) => (f.elements[n].value||"").trim();
+$("#f-subject").addEventListener("submit",async e=>{ e.preventDefault(); const f=e.target;
+  const name=val(f,"name"); if(!name) return;
+  if(await add("subjects",{name,teacher:val(f,"teacher"),color:Number(f.elements.color.value)||0})){ f.reset(); toast(`Added ${name}`); }
+});
+$("#f-activity").addEventListener("submit",async e=>{ e.preventDefault(); const f=e.target;
+  const title=val(f,"title"), subjectId=val(f,"subjectId"); if(!title||!subjectId) return;
+  const status=val(f,"status")||"notcomplete";
+  const links=[];
+  for(const r of document.querySelectorAll("#a-links .lrow")){
+    const raw=r.querySelector(".lu").value.trim(), lt=r.querySelector(".lt").value.trim();
+    if(!raw){ if(lt){ toast("Add a web address for that link, or clear its title."); r.querySelector(".lu").focus(); return; } continue; }
+    const u=safeUrl(raw); if(!u){ toast("Enter a web address that starts with http:// or https://"); r.querySelector(".lu").focus(); return; }
+    links.push({title:lt||host(u),url:u});
+  }
+  const data={title,subjectId,due:val(f,"due"),notes:val(f,"notes"),status};
+  if(status==="submitted") data.submittedAt=Date.now();
+  const newId=await add("activities",data);
+  if(!newId) return;
+  for(const l of links) await add("links",{...l,subjectId,activityId:newId});
+  f.elements.title.value=""; f.elements.due.value=""; f.elements.notes.value=""; f.elements.status.value="notcomplete"; resetLinkRows();
+  toast(`Activity added as ${ST[status].t}${links.length?` with ${links.length} link${links.length===1?"":"s"}`:""}`);
+});
+$("#f-link").addEventListener("submit",async e=>{ e.preventDefault(); const f=e.target;
+  const u=safeUrl(val(f,"url")); if(!u){ toast("Enter a web address that starts with http:// or https://"); f.elements.url.focus(); return; }
+  const activityId=val(f,"activityId"), act=activityId&&state.activities.find(a=>a.id===activityId);
+  if(await add("links",{title:val(f,"title"),url:u,subjectId:val(f,"subjectId"),activityId})){ f.elements.title.value=""; f.elements.url.value=""; toast(act?`Link saved to “${act.title}”`:"Link saved"); }
+});
+/* ---------- attachments (comments and teacher remarks) ---------- */
+const IMG_TYPES=["image/png","image/jpeg","image/gif","image/webp"], VID_TYPES=["video/mp4","video/webm"];
+function uploadErr(e){
+  const c=e&&e.code;
+  if(c==="too_large") return "A file is over 20 MB. Choose a smaller file.";
+  if(c==="unsupported_type") return "One file type isn't supported. Use JPG, PNG, GIF, WebP, MP4 or WebM.";
+  if(c==="quota_or_state") return "This device is out of storage space. Remove some old attachments, then try again.";
+  if(c==="rate_limited") return "Too many uploads at once. Wait a moment, then try again.";
+  if(c==="not_granted") return "Only people who can edit this Coursebook can attach files.";
+  return "An attachment didn't upload. Check your connection and try again.";
+}
+function makeAttacher(prefix, noun, pasteTarget){
+  const area=$("#"+prefix+"-area"), pendEl=$("#"+prefix+"-pending"), hint=$("#"+prefix+"-hint"), fi=$("#"+prefix+"-file");
+  const pending=[];
+  const draw=()=>{ pendEl.innerHTML = pending.map((p,i)=>`<div class="pend">${p.kind==="video"?`<video src="${p.url}" muted playsinline></video>`:`<img src="${p.url}" alt="">`}<span class="pk">${KINDS[p.kind]}</span><button type="button" class="ghost danger" data-unpend="${i}" aria-label="Remove ${KINDS[p.kind]}">×</button></div>`).join(""); };
+  const queue=(f,kind)=>{
+    const isVid=kind==="video";
+    if(!(isVid?VID_TYPES:IMG_TYPES).includes(f.type)){ toast(isVid ? `${f.name||"That video"}: use an MP4 or WebM video.` : `${f.name||"That image"}: use JPG, PNG, GIF or WebP. Convert iPhone HEIC photos to JPG first.`); return; }
+    if(f.size>20*1024*1024){ toast(`${f.name||"That file"} is over 20 MB. Choose a smaller file.`); return; }
+    if(pending.length>=10){ toast(`You can attach up to 10 files per ${noun}.`); return; }
+    pending.push({file:f,kind,url:URL.createObjectURL(f)}); draw();
+  };
+  area.addEventListener("click",e=>{
+    if(e.target.closest("[data-pick]")){ fi.accept=IMG_TYPES.concat(VID_TYPES).join(","); fi.value=""; fi.click(); return; }
+    const r=e.target.closest("[data-unpend]");
+    if(r){ const i=Number(r.dataset.unpend); if(pending[i]){ URL.revokeObjectURL(pending[i].url); pending.splice(i,1); draw(); } }
+  });
+  fi.addEventListener("change",e=>{ [...e.target.files].forEach(f=>queue(f, f.type.startsWith("video/") ? "video" : "photo")); e.target.value=""; });
+  pasteTarget.addEventListener("paste",e=>{
+    if(!assets) return;
+    const imgs=[...((e.clipboardData&&e.clipboardData.files)||[])].filter(f=>f.type.startsWith("image/"));
+    if(imgs.length){ e.preventDefault(); imgs.forEach(f=>queue(f,"screenshot")); toast("Screenshot attached"); }
+  });
+  return {
+    pending,
+    ui(){
+      area.querySelectorAll("[data-pick]").forEach(b=>b.disabled=!assets);
+      hint.textContent = assets ? `Images: JPG, PNG, GIF or WebP. Videos: MP4 or WebM. Up to 20 MB each, 10 per ${noun}.`
+        : mode==="local" ? "Attachments work on the published Coursebook." : "Only people who can edit this Coursebook can attach files.";
+    },
+    clear(){ pending.forEach(p=>URL.revokeObjectURL(p.url)); pending.length=0; draw(); },
+    discard(atts){ atts.forEach(a=>assets&&assets.delete(a.id).catch(()=>{})); },
+    async upload(btn, idle){
+      const atts=[];
+      try{
+        for(let i=0;i<pending.length;i++){
+          const p=pending[i]; btn.textContent=`Uploading ${i+1} of ${pending.length}…`;
+          const r=await assets.upload(p.file);
+          atts.push({id:r.id,kind:p.kind,name:p.file.name||KINDS[p.kind],type:r.contentType});
+        }
+      }catch(err){ this.discard(atts); toast(uploadErr(err)); btn.disabled=false; btn.textContent=idle; return null; }
+      return atts;
+    }
+  };
+}
+const cAtt=makeAttacher("att","comment",$("#c-text")), rAtt=makeAttacher("ratt","remark",$("#r-text"));
+function setAttUI(){ cAtt.ui(); rAtt.ui(); }
+const noPerm="Only people who can edit this Coursebook can attach files.";
+$("#f-comment").addEventListener("submit",async e=>{ e.preventDefault(); const f=e.target;
+  const text=val(f,"text");
+  if(!text && !cAtt.pending.length){ toast("Write a comment or attach a file."); $("#c-text").focus(); return; }
+  if(cAtt.pending.length && !assets){ toast(noPerm); return; }
+  const btn=$("#c-post"); btn.disabled=true;
+  const atts=await cAtt.upload(btn,"Post comment"); if(!atts) return;
+  btn.textContent="Posting…";
+  const ok=await add("comments",{text,subjectId:val(f,"subjectId"),activityId:val(f,"activityId"),attachments:atts});
+  btn.disabled=false; btn.textContent="Post comment";
+  if(ok){ f.elements.text.value=""; cAtt.clear(); toast(atts.length?`Comment posted with ${atts.length} attachment${atts.length===1?"":"s"}`:"Comment posted"); }
+  else cAtt.discard(atts);
+});
+$("#f-remark").addEventListener("submit",async e=>{ e.preventDefault(); const f=e.target;
+  const text=val(f,"text"), subjectId=val(f,"subjectId"); if(!subjectId) return;
+  if(!text && !rAtt.pending.length){ toast("Write the remark or attach proof."); $("#r-text").focus(); return; }
+  if(rAtt.pending.length && !assets){ toast(noPerm); return; }
+  const btn=$("#r-post"); btn.disabled=true;
+  const atts=await rAtt.upload(btn,"Add remark"); if(!atts) return;
+  btn.textContent="Saving…";
+  const ok=await add("remarks",{text,subjectId,activityId:val(f,"activityId"),kind:val(f,"kind")||"note",date:val(f,"date")||todayStr(),resolved:false,attachments:atts});
+  btn.disabled=false; btn.textContent="Add remark";
+  if(ok){ f.elements.text.value=""; f.elements.date.value=todayStr(); rAtt.clear(); toast(atts.length?`Remark added with ${atts.length} attachment${atts.length===1?"":"s"}`:"Remark added"); }
+  else rAtt.discard(atts);
+});
+/* missing files and the photo viewer */
+document.addEventListener("error",e=>{
+  const t=e.target;
+  if(t && t.matches && t.matches(".att img,.att video,.gcard img,.gcard video")){ const d=document.createElement("div"); d.className="missing"; d.textContent="File unavailable"; t.replaceWith(d); }
+},true);
+document.addEventListener("pause",e=>{ if(e.target.tagName==="VIDEO" && document.querySelector(".list[data-stale='1']")) setTimeout(render,0); },true);
+document.addEventListener("click",e=>{
+  const im=e.target.closest("img[data-zoom]");
+  if(im){ const lb=$("#lb"); lb.querySelector("img").src=im.src; lb.querySelector("img").alt=im.alt; lb.hidden=false; return; }
+  if(e.target.closest("#lb")) $("#lb").hidden=true;
+});
+addEventListener("keydown",e=>{ if(e.key==="Escape"){ $("#lb").hidden=true; $("#install").hidden=true; } });
+/* install and backup */
+const ua=navigator.userAgent||"";
+const isIOS = /iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints>1);
+const isStandalone = () => matchMedia("(display-mode: standalone)").matches || navigator.standalone===true;
+let deferredPrompt=null;
+addEventListener("beforeinstallprompt",e=>{ e.preventDefault(); deferredPrompt=e; refreshInstall(); });
+addEventListener("appinstalled",()=>{ deferredPrompt=null; refreshInstall(); toast("Coursebook installed"); });
+function refreshInstall(){
+  const s=$("#inst-state");
+  $("#inst-btn").hidden=!deferredPrompt; $("#inst-ios").hidden=true; $("#inst-other").hidden=true;
+  if(isStandalone()){ s.textContent="Coursebook is installed and running as an app on this device."; $("#inst-btn").hidden=true; return; }
+  if(location.protocol==="file:"){ s.textContent="Open Coursebook from its web address (https://…) to install it. A file opened straight from a folder can't be installed or used offline."; return; }
+  if(deferredPrompt){ s.textContent="Install Coursebook to open it from your home screen or dock, with or without internet."; return; }
+  if(isIOS){ s.textContent="On iPhone and iPad, install from Safari:"; $("#inst-ios").hidden=false; return; }
+  s.textContent="Use your browser's menu to install:"; $("#inst-other").hidden=false;
+}
+$("#inst-btn").addEventListener("click",async()=>{ if(!deferredPrompt) return; deferredPrompt.prompt(); try{ await deferredPrompt.userChoice; }catch{} deferredPrompt=null; refreshInstall(); });
+const fmtMB = b => b>=1e9 ? (b/1e9).toFixed(1)+" GB" : Math.max(0.1,b/1e6).toFixed(1)+" MB";
+async function refreshStorage(){
+  let t = idb ? "Everything you add is saved on this device and works without internet. Nothing is uploaded." : "This browser is blocking storage, so changes won't be kept. Turn off private browsing and reopen Coursebook.";
+  try{ if(idb && navigator.storage && navigator.storage.estimate){ const {usage,quota}=await navigator.storage.estimate(); if(quota) t+=` Using ${fmtMB(usage||0)} of about ${fmtMB(quota)} available.`; } }catch{}
+  $("#store-state").textContent=t;
+}
+$("#install-open").addEventListener("click",()=>{ refreshInstall(); refreshStorage(); $("#bk-confirm").hidden=true; $("#install").hidden=false; $("#install-close").focus(); });
+$("#install-close").addEventListener("click",()=>{ $("#install").hidden=true; $("#install-open").focus(); });
+$("#install").addEventListener("click",e=>{ if(e.target.id==="install") $("#install").hidden=true; });
+const toDataURL = b => new Promise((res,rej)=>{ const r=new FileReader(); r.onload=()=>res(r.result); r.onerror=()=>rej(r.error); r.readAsDataURL(b); });
+$("#bk-save").addEventListener("click",async()=>{
+  if(!idb){ toast("Nothing is saved on this device to back up."); return; }
+  const btn=$("#bk-save"); btn.disabled=true; btn.textContent="Preparing…";
+  try{
+    const data={}; for(const c of COLS) data[c]=await idbAll(c);
+    const files=[]; for(const f of await idbAll("files")) if(f && f.blob) files.push({id:f.id,type:f.type,createdAt:f.createdAt,data:await toDataURL(f.blob)});
+    const out=JSON.stringify({app:"coursebook",version:1,exportedAt:new Date().toISOString(),data,files});
+    const url=URL.createObjectURL(new Blob([out],{type:"application/json"}));
+    const a=document.createElement("a"); a.href=url; a.download=`coursebook-backup-${todayStr()}.json`;
+    document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url),15000);
+    toast(`Backup downloaded with ${files.length} file${files.length===1?"":"s"}`);
+  }catch{ toast("The backup couldn't be made. Free up some space on this device and try again."); }
+  btn.disabled=false; btn.textContent="Download backup";
+});
+let pendingRestore=null;
+$("#bk-load").addEventListener("click",()=>{ const fi=$("#bk-file"); fi.value=""; fi.click(); });
+$("#bk-file").addEventListener("change",async e=>{
+  const f=e.target.files[0]; if(!f) return;
+  try{
+    const j=JSON.parse(await f.text());
+    if(!j || j.app!=="coursebook" || !j.data || typeof j.data!=="object") throw 0;
+    pendingRestore=j;
+    const n=c=>Array.isArray(j.data[c])?j.data[c].length:0;
+    const pl=(k,w)=>`${k} ${w}${k===1?"":"s"}`;
+    const when=j.exportedAt?new Date(j.exportedAt).toLocaleString():"an unknown date";
+    $("#bk-msg").textContent=`This backup from ${when} has ${pl(n("subjects"),"subject")}, ${n("activities")} ${n("activities")===1?"activity":"activities"}, ${pl(n("remarks"),"remark")} and ${pl((Array.isArray(j.files)?j.files:[]).length,"file")}. Restoring replaces everything saved on this device.`;
+    $("#bk-confirm").hidden=false;
+  }catch{ toast("That file isn't a Coursebook backup."); }
+});
+$("#bk-cancel").addEventListener("click",()=>{ pendingRestore=null; $("#bk-confirm").hidden=true; });
+$("#bk-go").addEventListener("click",async()=>{
+  const j=pendingRestore; if(!j) return;
+  if(!idb){ toast("This browser is blocking storage, so the backup can't be restored."); return; }
+  const btn=$("#bk-go"); btn.disabled=true; btn.textContent="Restoring…";
+  try{
+    const t=idb.transaction(STORES,"readwrite");
+    STORES.forEach(s=>t.objectStore(s).clear());
+    COLS.forEach(c=>(Array.isArray(j.data[c])?j.data[c]:[]).forEach(r=>{ if(r && typeof r.id==="string") t.objectStore(c).put(r); }));
+    await done(t);
+    for(const f of (Array.isArray(j.files)?j.files:[])){
+      if(!f || typeof f.id!=="string" || typeof f.data!=="string" || !f.data.startsWith("data:")) continue;
+      const blob=await (await fetch(f.data)).blob();
+      await idbPut("files",{id:f.id,blob,type:f.type||blob.type,size:blob.size,createdAt:f.createdAt||Date.now()});
+    }
+    await reloadAll(); bcPost(); refreshStorage();
+    pendingRestore=null; $("#bk-confirm").hidden=true; toast("Backup restored");
+  }catch(e){ toast(e && e.name==="QuotaExceededError" ? "This device doesn't have enough space for that backup." : "The backup couldn't be restored."); }
+  btn.disabled=false; btn.textContent="Replace my data";
+});
+
+function setSFilter(v){ sfilter = (v===sfilter && v!=="all") ? "all" : v; try{localStorage.setItem("cb-sfilter",sfilter);}catch{} renderActivities(); }
+$("#pie").addEventListener("click",e=>{ const s=e.target.closest("[data-v]"); if(s) setSFilter(s.dataset.v); });
+document.addEventListener("click",e=>{
+  const b=e.target.closest("button[data-act]"); if(!b) return;
+  const id=b.dataset.id, act=b.dataset.act;
+  if(act==="del"){
+    if(!b.classList.contains("armed")){ b.classList.add("armed"); b.textContent="Confirm delete"; setTimeout(()=>{ if(b.isConnected){ b.classList.remove("armed"); b.textContent="Delete"; } },3500); return; }
+    if((b.dataset.col==="comments"||b.dataset.col==="remarks") && assets){ const c=state[b.dataset.col].find(x=>x.id===id); (Array.isArray(c&&c.attachments)?c.attachments:[]).forEach(a=>a&&a.id&&assets.delete(a.id).catch(()=>{})); }
+    del(b.dataset.col,id); toast("Deleted");
+  } else if(act==="ctab"){ ctab=b.dataset.v; try{localStorage.setItem("cb-ctab",ctab);}catch{} renderComments(); }
+  else if(act==="rmatt"){
+    if(!b.classList.contains("armed")){ b.classList.add("armed"); b.textContent="Confirm remove"; setTimeout(()=>{ if(b.isConnected){ b.classList.remove("armed"); b.textContent="Remove"; } },3500); return; }
+    const c=state.comments.find(x=>x.id===b.dataset.cid); if(!c) return;
+    const aid=b.dataset.aid, rest=(Array.isArray(c.attachments)?c.attachments:[]).filter(a=>a&&a.id!==aid);
+    upd("comments",c.id,{attachments:rest}).then(()=>{ if(assets) assets.delete(aid).catch(()=>{}); });
+    toast("Attachment removed");
+  } else if(act==="status"){
+    const a=state.activities.find(x=>x.id===id), v=b.dataset.v; if(!a || st(a)===v || !ST[v]) return;
+    upd("activities",id,{status:v,submittedAt: v==="submitted" ? Date.now() : null});
+    toast(`Set to ${ST[v].t}`);
+  }
+  else if(act==="sfilter"){ setSFilter(b.dataset.v); }
+  else if(act==="addlink"){
+    const a=state.activities.find(x=>x.id===id); if(!a) return;
+    if(subj(a.subjectId)) $("#l-subject").value=a.subjectId;
+    fillSelects(); $("#l-activity").value=a.id;
+    location.hash="links"; setTimeout(()=>{ $("#l-title").focus(); },60);
+    toast(`Adding a link for “${a.title}”`);
+  }
+  else if(act==="afilter"){ afilter=b.dataset.v; try{localStorage.setItem("cb-afilter",afilter);}catch{} renderActivities(); }
+  else if(act==="unsubmit"){ upd("activities",id,{status:"ongoing",submittedAt:null}); toast("Set to Ongoing"); }
+  else if(act==="resolve"){ const r=state.remarks.find(x=>x.id===id); if(r){ upd("remarks",id,{resolved:!r.resolved}); toast(r.resolved?"Reopened":"Marked done"); } }
+  else if(act==="focus"){ filter=id; try{localStorage.setItem("cb-filter",filter);}catch{} location.hash="activities"; render(); }
+});
+document.addEventListener("change",e=>{
+  const i=e.target; if(!i.dataset||!i.dataset.field) return;
+  let v=i.value.trim();
+  if(i.dataset.field==="submissionUrl" && v){ const u=safeUrl(v); if(!u){ toast("Enter a web address that starts with http:// or https://"); return; } v=u; }
+  const a=state.activities.find(x=>x.id===i.dataset.id); if(a && (a[i.dataset.field]||"")===v) return;
+  upd("activities",i.dataset.id,{[i.dataset.field]:v});
+});
+document.addEventListener("focusout",()=>setTimeout(()=>{ document.querySelectorAll(".list[data-stale='1']").forEach(()=>render()); },0));
+
+/* ---------- boot ---------- */
+function updateNet(){ if(mode!=="device") return; setStatus(navigator.onLine ? "Saved on this device" : "Offline · saved on this device"); }
+addEventListener("online",updateNet); addEventListener("offline",updateNet);
+showTab(); render();
+(async()=>{
+  myId="me"; assets=deviceAssets; setAttUI();
+  try{ idb=await openDB(); }catch{ idb=null; }
+  if(!idb){
+    mode="local"; COLS.forEach(c=>loaded[c]=true); setStatus("Not saved · storage blocked"); render();
+    toast("This browser is blocking storage, so changes won't be kept. Turn off private browsing.");
+    return;
+  }
+  mode="device";
+  await reloadAll(); updateNet();
+  try{ if(navigator.storage && navigator.storage.persist && !(await navigator.storage.persisted())) await navigator.storage.persist(); }catch{}
+})();
+if("serviceWorker" in navigator && location.protocol!=="file:"){
+  addEventListener("load",()=>{ navigator.serviceWorker.register("sw.js").catch(()=>{}); });
+}
+})();
+</script>
+</body>
+</html>
