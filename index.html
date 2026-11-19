@@ -138,6 +138,13 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--accent);outline-off
 .seg .c{font:500 .7rem var(--f-mono)}
 .dash{display:grid;grid-template-columns:220px minmax(0,1fr);gap:28px;align-items:center;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:20px;margin-bottom:16px}
 @media (max-width:640px){.dash{grid-template-columns:minmax(0,1fr);gap:18px}}
+/* activities: chart card beside the add form, saved list below */
+.actlayout{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:20px;align-items:start;margin-bottom:20px}
+.actlayout .dash{grid-template-columns:minmax(0,1fr);gap:18px;margin-bottom:0;align-items:start}
+.actlayout .dash .legend{max-width:none}
+.actlayout .dash .bar{max-width:none}
+@media (max-width:760px){.actlayout{grid-template-columns:minmax(0,1fr)}}
+body.readonly .actlayout{grid-template-columns:minmax(0,1fr)}
 #pie{width:100%;max-width:220px;height:auto;display:block;margin:0 auto}
 #pie [data-v]{cursor:pointer;transition:opacity .15s}
 #pie.focus [data-v]:not(.on){opacity:.3}
@@ -262,6 +269,7 @@ body.readonly .grid{grid-template-columns:minmax(0,1fr)}
   <section id="sec-activities" data-sec="activities" hidden>
     <h2>Activities</h2>
     <p class="lede">Homework, projects and exams with their markings. Click a slice or a marking in the legend to show only those activities. Clicked the wrong marking? Use the buttons on each activity to set it right.</p>
+    <div class="actlayout">
     <div class="dash">
       <svg id="pie" viewBox="0 0 200 200" role="img" aria-label="Pie chart of activities by marking"></svg>
       <div>
@@ -279,7 +287,6 @@ body.readonly .grid{grid-template-columns:minmax(0,1fr)}
         </div>
       </div>
     </div>
-    <div class="grid">
       <form class="panel w" id="f-activity" autocomplete="off">
         <h3>Add an activity</h3>
         <label for="a-title">Title<input id="a-title" name="title" required maxlength="140" placeholder="e.g. Lab report: osmosis"></label>
@@ -298,8 +305,8 @@ body.readonly .grid{grid-template-columns:minmax(0,1fr)}
         </div>
         <button class="btn" type="submit">Add activity</button>
       </form>
-      <div class="list" id="list-activities"></div>
     </div>
+    <div class="list" id="list-activities"></div>
   </section>
 
   <section id="sec-links" data-sec="links" hidden>
@@ -608,7 +615,7 @@ function renderActivities(){
   const total=all.length, pct=v=> total ? Math.round(n[v]/total*100) : 0;
   drawPie(n,total);
   $("#prog-pct").textContent = pct("submitted")+"%";
-  $("#prog-sub").textContent = total ? `${n.submitted} of ${total} task${total===1?"":"s"} submitted · ${n.ongoing} ongoing · ${n.notcomplete} not complete` : "No activities yet. Add one with the form below.";
+  $("#prog-sub").textContent = total ? `${n.submitted} of ${total} task${total===1?"":"s"} submitted · ${n.ongoing} ongoing · ${n.notcomplete} not complete` : "No activities yet. Add one with the form.";
   $("#prog-bar").innerHTML = total ? PIE_ORDER.map(v=>`<span style="width:${n[v]/total*100}%;background:${PIE_COL[v]}"></span>`).join("") : "";
   document.querySelectorAll("#legend button").forEach(b=>{
     const v=b.dataset.v, c = v==="all" ? total : n[v];
