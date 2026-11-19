@@ -180,13 +180,15 @@ form.panel.editing{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-
 .pmitem-t{font-weight:600;overflow-wrap:anywhere}
 #j-text{min-height:120px}
 #sec-parents > p.lede{max-width:none}
-.gfilter{display:flex;flex-wrap:wrap;gap:10px 14px;align-items:flex-end;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:12px 16px;margin-bottom:22px}
-.gfilter label{flex:1 1 160px;min-width:0}
+.gfilter{display:flex;flex-wrap:wrap;gap:6px 12px;align-items:center;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:7px 12px;margin-bottom:16px}
+.gfilter label{flex:1 1 150px;min-width:0;flex-direction:row;align-items:center;gap:6px;font-size:.8rem;white-space:nowrap}
+.gfilter label select,.gfilter label input{flex:1;min-width:0;width:auto;height:32px;padding:4px 8px;font-size:.85rem}
 .gfilter .formbtns{flex:0 0 auto}
-.gf-title{width:100%;font:600 .78rem var(--f-body);text-transform:uppercase;letter-spacing:.07em;color:var(--muted)}
-.gf-note{width:100%;font-size:.84rem;color:var(--accent);font-weight:500}
+.gfilter .btn,.gfilter .ghost{padding:5px 12px;font-size:.82rem;min-height:0}
+.gf-title{font:600 .72rem var(--f-body);text-transform:uppercase;letter-spacing:.07em;color:var(--muted)}
+.gf-note{width:100%;font-size:.8rem;color:var(--accent);font-weight:500}
 .gf-note:empty{display:none}
-.gfilter select,.gfilter input{height:42px}
+@media (pointer:coarse){.gfilter label select,.gfilter label input{font-size:16px}}
 #xl-btn{padding:6px 12px;font-size:.82rem}
 .brand{align-items:center}
 .titleblock{display:flex;flex-direction:column;gap:3px;min-width:0}
@@ -479,7 +481,7 @@ body.readonly .grid{grid-template-columns:minmax(0,1fr)}
     <div id="pm-body" hidden>
       <div class="pmbar"><span class="hint">Unlocked. Leaving this tab locks it again.</span><button type="button" class="ghost" id="pm-change">Change code</button><button type="button" class="ghost" id="pm-lockbtn">Lock</button></div>
       <form class="gfilter" id="gfilter" autocomplete="off" role="search">
-        <span class="gf-title">Filter the overview and journal</span>
+        <span class="gf-title">Filter</span>
         <label for="filter">Subject<select id="filter"><option value="">All subjects</option></select></label>
         <label for="gf-from">From<input id="gf-from" type="date"></label>
         <label for="gf-to">To<input id="gf-to" type="date"></label>
@@ -597,7 +599,7 @@ function itemDates(x){
 }
 const inRange = x => { if(!gFrom&&!gTo) return true; const r=itemDates(x); if(!r) return false; if(gTo&&r[0]>gTo) return false; if(gFrom&&r[1]<gFrom) return false; return true; };
 const pmPass = x => (!filter || x.subjectId === filter) && inRange(x);
-const pass = () => true;
+const pass = pmPass;
 function parseDay(d){ const [y,m,dd]=String(d).split("-").map(Number); return new Date(y,(m||1)-1,dd||1); }
 const fmtDay = dt => dt.toLocaleDateString(undefined,{weekday:"short",month:"short",day:"numeric"});
 const fmtTime = ms => new Date(ms).toLocaleDateString(undefined,{month:"short",day:"numeric",year:"numeric"});
@@ -761,7 +763,7 @@ function clearAF(){ af={subject:"",name:"",from:"",to:""}; $("#a-filters").reset
 const statusSeg = a => `<div class="seg w" role="group" aria-label="Change marking">${Object.entries(ST).map(([v,o])=>`<button data-act="status" data-id="${esc(a.id)}" data-v="${v}" class="${v}" aria-pressed="${st(a)===v}">${o.t}</button>`).join("")}</div>`;
 const linkA = (url,text) => { const u=safeUrl(url); return u ? `<a href="${esc(u)}" target="_blank" rel="noopener noreferrer">${esc(text)}</a>` : esc(text); };
 function renderActivities(){
-  const all=state.activities.filter(pass);
+  const all=state.activities.slice();
   const n={notcomplete:0,ongoing:0,submitted:0}; all.forEach(a=>n[st(a)]++);
   const total=all.length, pct=v=> total ? Math.round(n[v]/total*100) : 0;
   drawPie(n,total);
@@ -896,7 +898,7 @@ function fillSelects(){
 }
 function counts(){
   $("#n-subjects").textContent=state.subjects.length;
-  $("#n-activities").textContent=state.activities.filter(pass).length;
+  $("#n-activities").textContent=state.activities.length;
   $("#n-links").textContent=state.links.filter(pass).length;
   $("#n-comments").textContent=state.comments.filter(pass).length;
   $("#n-remarks").textContent=state.remarks.filter(pass).length;
@@ -908,6 +910,10 @@ function showTab(){
   let t=location.hash.slice(1); if(t==="submitted"||t==="status") t="activities"; if(!TABS.includes(t)) t="subjects";
   document.querySelectorAll("section[data-sec]").forEach(s=>s.hidden=s.dataset.sec!==t);
   document.querySelectorAll("nav a").forEach(a=>a.setAttribute("aria-selected",String(a.dataset.tab===t)));
+  const gf=$("#gfilter"), slot={links:"#sec-links",comments:"#sec-comments",remarks:"#sec-remarks"}[t];
+  if(slot){ const sec=$(slot); sec.insertBefore(gf,sec.querySelector(".grid")); gf.hidden=false; }
+  else if(t==="parents"){ $("#pm-body").insertBefore(gf,$("#pm-stats")); gf.hidden=false; }
+  else gf.hidden=true;
   if(t!=="parents"&&pmUnlocked) pmLock();
   if(t==="parents") pmShow();
 }
