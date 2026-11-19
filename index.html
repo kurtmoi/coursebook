@@ -472,11 +472,18 @@ body.readonly .grid{grid-template-columns:minmax(0,1fr)}
       <form id="pm-pin-form" autocomplete="off" hidden>
         <label for="pm-pin">4-digit code<input id="pm-pin" class="pin" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="4" autocomplete="off"></label>
         <label for="pm-pin2" id="pm-pin2-wrap" hidden>Type the code again<input id="pm-pin2" class="pin" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="4" autocomplete="off"></label>
+        <label for="pm-email" id="pm-email-wrap" hidden>Recovery email (if the code is forgotten)<input id="pm-email" type="email" maxlength="120" placeholder="parent@example.com" autocomplete="email"></label>
+        <p class="hint" id="pm-email-hint" hidden>If the code is forgotten, a new temporary code can be emailed here. Emails are sent through FormSubmit.co. The first time, they'll email you an "Activate Form" link to click once.</p>
         <button class="btn" type="submit" id="pm-pin-btn">Unlock</button>
         <button type="button" class="ghost" id="pm-change-cancel" hidden>Cancel</button>
       </form>
       <button type="button" class="ghost" id="pm-forgot" hidden>Forgot the code?</button>
-      <div class="confirm" id="pm-reset" hidden><p>Resetting removes the code and erases every parent journal entry, so nobody can read them without the code. Activities aren't affected.</p><div class="copyrow"><button type="button" class="btn danger" id="pm-reset-go">Reset and erase journal</button><button type="button" class="ghost" id="pm-reset-cancel">Cancel</button></div></div>
+      <div class="confirm" id="pm-reset" hidden>
+        <p id="pm-mail-msg"></p>
+        <div class="copyrow"><button type="button" class="btn" id="pm-mail-go">Email me a new code</button></div>
+        <p>No access to that email? Resetting removes the code and erases every parent journal entry, so nobody can read them without the code. Activities aren't affected.</p>
+        <div class="copyrow"><button type="button" class="btn danger" id="pm-reset-go">Reset and erase journal</button><button type="button" class="ghost" id="pm-reset-cancel">Cancel</button></div>
+      </div>
     </div>
     <div id="pm-body" hidden>
       <div class="pmbar"><span class="hint">Unlocked. Leaving this tab locks it again.</span><button type="button" class="ghost" id="pm-change">Change code</button><button type="button" class="ghost" id="pm-lockbtn">Lock</button></div>
@@ -687,7 +694,7 @@ async function reloadAll(){
     fileURLs.forEach(u=>URL.revokeObjectURL(u)); fileURLs.clear();
     try{ for(const f of await idbAll("files")) if(f && f.blob) fileURLs.set(f.id,URL.createObjectURL(f.blob)); }catch{}
   }
-  if(idb){ try{ const all=await idbAll("settings"); const o=all.find(x=>x.id==="owner"); ownerName=(o&&o.value)||""; const p=all.find(x=>x.id==="parentPin"); parentPin=p&&p.hash?{hash:p.hash,salt:p.salt}:null; }catch{} }
+  if(idb){ try{ const all=await idbAll("settings"); const o=all.find(x=>x.id==="owner"); ownerName=(o&&o.value)||""; const p=all.find(x=>x.id==="parentPin"); parentPin=p&&p.hash?{hash:p.hash,salt:p.salt,email:p.email||"",temp:!!p.temp}:null; }catch{} }
   renderOwner(); pmReady=true; pmShow();
   Object.keys(lastHTML).forEach(k=>delete lastHTML[k]);
   render();
@@ -1404,7 +1411,11 @@ function pmShow(){
   $("#pm-lock-title").textContent=pmMode==="change"?"Choose a new parent code":setting?"Set a parent code":"Enter the parent code";
   $("#pm-lock-msg").textContent=setting?"Choose a 4-digit code that only parents know. You'll need it every time you open this tab.":"This section is for parents only.";
   $("#pm-pin2-wrap").hidden=!setting; $("#pm-pin-btn").textContent=setting?"Save code":"Unlock";
-  $("#pm-forgot").hidden=setting; $("#pm-change-cancel").hidden=pmMode!=="change";
+  $("#pm-email-wrap").hidden=!setting; $("#pm-email-hint").hidden=!setting;
+  if(setting&&!$("#pm-email").value) $("#pm-email").value=(parentPin&&parentPin.email)||"";
+  const forced=pmMode==="change"&&parentPin&&parentPin.temp;
+  if(forced){ $("#pm-lock-title").textContent="Choose a new code now"; $("#pm-lock-msg").textContent="You unlocked with a temporary emailed code. For your security, choose a new 4-digit code now."; }
+  $("#pm-forgot").hidden=setting; $("#pm-change-cancel").hidden=pmMode!=="change"||!!forced;
 }
 function pmLock(){
   pmUnlocked=false; pmMode="unlock";
@@ -1418,9 +1429,13 @@ $("#pm-pin-form").addEventListener("submit",async e=>{ e.preventDefault();
   if(setting){
     if(pin!==pin2){ toast("The two codes don't match. Type the same 4 digits twice."); $("#pm-pin2").focus(); return; }
     const salt=[...crypto.getRandomValues(new Uint8Array(8))].map(b=>b.toString(16).padStart(2,"0")).join("");
-    const rec={hash:await pinHash(pin,salt),salt};
+    const email=$("#pm-email").value.trim(), oldEmail=(parentPin&&parentPin.email)||"";
+    if(email&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){ toast("Enter a valid email address, or leave it empty."); $("#pm-email").focus(); return; }
+    const rec={hash:await pinHash(pin,salt),salt,email,temp:false};
     if(!(await savePin(rec))) return;
     parentPin=rec; toast(pmMode==="change"?"Parent code changed":"Parent code set");
+    $("#pm-email").value="";
+    if(email&&email!==oldEmail) confirmRecoveryEmail(email);
   } else {
     if(Date.now()<pmWaitUntil){ toast(`Too many tries. Wait ${Math.ceil((pmWaitUntil-Date.now())/1000)} seconds.`); return; }
     if(await pinHash(pin,parentPin.salt)!==parentPin.hash){
@@ -1431,9 +1446,14 @@ $("#pm-pin-form").addEventListener("submit",async e=>{ e.preventDefault();
     pmFails=0;
   }
   $("#pm-pin").value=""; $("#pm-pin2").value="";
-  pmUnlocked=true; pmMode="unlock"; pmShow(); renderParents();
+  pmUnlocked=true; pmMode=(!setting&&parentPin&&parentPin.temp)?"change":"unlock"; pmShow();
+  if(pmMode==="unlock") renderParents(); else toast("Choose a new code now. The emailed code was only temporary.");
 });
-$("#pm-forgot").addEventListener("click",()=>{ $("#pm-reset").hidden=false; });
+$("#pm-forgot").addEventListener("click",()=>{
+  const em=parentPin&&parentPin.email;
+  $("#pm-mail-msg").textContent=em?`A new temporary code will be emailed to ${maskEmail(em)}. This needs an internet connection.`:"No recovery email was set, so a new code can't be emailed.";
+  $("#pm-mail-go").hidden=!em; $("#pm-reset").hidden=false;
+});
 $("#pm-reset-cancel").addEventListener("click",()=>{ $("#pm-reset").hidden=true; });
 $("#pm-reset-go").addEventListener("click",async()=>{
   for(const j of state.journal.slice()) await del("journal",j.id);
@@ -1620,6 +1640,45 @@ $("#xl-btn").addEventListener("click",async()=>{
     if(msg) toast(msg);
   }catch(e){ toast("The Excel file couldn't be made. Try again."); }
   btn.disabled=false; btn.textContent="Download Excel";
+});
+/* parents monitoring: recovery email */
+let pmMailWait=0;
+const maskEmail=e=>String(e).replace(/^(.)([^@]*)(@.*)$/,(m,a,b,c)=>a+"*".repeat(Math.min(Math.max(b.length,1),6))+c);
+async function sendMail(to,subject,message){
+  try{
+    const r=await fetch("https://formsubmit.co/ajax/"+encodeURIComponent(to),{method:"POST",headers:{"Content-Type":"application/json","Accept":"application/json"},
+      body:JSON.stringify({_subject:subject,_template:"box",_captcha:"false",App:"School Task Monitor",Message:message})});
+    const j=await r.json().catch(()=>({}));
+    if(String(j.success)==="true") return "sent";
+    if(/activat/i.test(String(j.message||""))) return "activate";
+    return "error";
+  }catch{ return "error"; }
+}
+async function confirmRecoveryEmail(email){
+  const of=ownerName?` of ${ownerName}`:"";
+  const r=await sendMail(email,"School Task Monitor: recovery email for Parents Monitoring",
+    `This email address will receive a new temporary code if the Parents Monitoring code in School Task Monitor${of} is forgotten.\n\nKeep your code private, and change it if you think someone else knows it.`);
+  if(r==="activate") toast(`Check ${maskEmail(email)} for an email from FormSubmit and click "Activate Form", so a forgotten code can be emailed.`);
+  else if(r==="sent") toast(`Recovery email saved. A confirmation was sent to ${maskEmail(email)}.`);
+  else toast("Recovery email saved, but the confirmation couldn't be sent right now. It will work once you're online and it's activated.");
+}
+$("#pm-mail-go").addEventListener("click",async()=>{
+  const em=parentPin&&parentPin.email; if(!em) return;
+  if(Date.now()<pmMailWait){ toast(`Please wait ${Math.ceil((pmMailWait-Date.now())/1000)} seconds before sending another email.`); return; }
+  if(!navigator.onLine){ toast("You're offline. Connect to the internet to email a new code."); return; }
+  const btn=$("#pm-mail-go"); btn.disabled=true; btn.textContent="Sending…";
+  const code=String(crypto.getRandomValues(new Uint32Array(1))[0]%10000).padStart(4,"0");
+  const of=ownerName?` of ${ownerName}`:"";
+  const r=await sendMail(em,"School Task Monitor: your new Parents Monitoring code",
+    `Hello,\n\nA new Parents Monitoring code was requested in School Task Monitor${of}.\n\nYour new temporary code is: ${code}\n\nFor your security, change this code immediately:\n1. Open School Task Monitor and go to Parents Monitoring.\n2. Unlock with the code above.\n3. Choose a new 4-digit code when asked. Only you should know it.\n\nThe old code no longer works.\n\nIf you didn't ask for this, someone may have tried to open Parents Monitoring on the device. Change the code right away.`);
+  if(r==="sent"){
+    const salt=[...crypto.getRandomValues(new Uint8Array(8))].map(b=>b.toString(16).padStart(2,"0")).join("");
+    const rec={hash:await pinHash(code,salt),salt,email:em,temp:true};
+    if(await savePin(rec)){ parentPin=rec; pmMailWait=Date.now()+120000; pmShow(); toast(`A new code was emailed to ${maskEmail(em)}. Unlock with it, then choose a new code.`); }
+  } else if(r==="activate"){
+    toast(`The recovery email isn't activated yet. Check ${maskEmail(em)} for an email from FormSubmit and click "Activate Form", then try again.`);
+  } else toast("The email couldn't be sent. Check the internet connection and try again.");
+  btn.disabled=false; btn.textContent="Email me a new code";
 });
 /* ---------- boot ---------- */
 function updateNet(){ if(mode!=="device") return; setStatus(navigator.onLine ? "Saved on this device" : "Offline · saved on this device"); }
