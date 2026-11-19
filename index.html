@@ -355,7 +355,7 @@ body.readonly .grid{grid-template-columns:minmax(0,1fr)}
     <p class="lede">Your course report: notes about a subject or activity, with photos, screenshots and videos attached. You can also paste a screenshot straight into the comment box.</p>
     <div class="grid">
       <form class="panel w" id="f-comment" autocomplete="off">
-        <h3>Add a comment</h3>
+        <h3 id="c-head">Add a comment</h3>
         <label for="c-subject">Subject<select id="c-subject" name="subjectId" data-subjects required></select></label>
         <label for="c-activity">About activity<select id="c-activity" name="activityId"><option value="">General</option></select></label>
         <label for="c-text">Comment<textarea id="c-text" name="text" maxlength="2000" placeholder="Write a comment, or paste a screenshot…"></textarea></label>
@@ -364,11 +364,12 @@ body.readonly .grid{grid-template-columns:minmax(0,1fr)}
           <div class="attbtns">
             <button type="button" class="ghost" data-pick="proof">+ Photo/Screenshot/Video Proof</button>
           </div>
+          <div class="pending" id="att-keep"></div>
           <div class="pending" id="att-pending"></div>
           <p class="hint" id="att-hint">Checking whether you can attach files…</p>
         </div>
         <input type="file" id="att-file" multiple hidden>
-        <button class="btn" type="submit" id="c-post">Post comment</button>
+        <div class="formbtns"><button class="btn" type="submit" id="c-post">Post comment</button><button type="button" class="ghost" id="c-cancel" hidden>Cancel</button></div>
       </form>
       <div class="stack">
         <div class="seg" id="c-tabs" role="group" aria-label="Comment views">
@@ -385,7 +386,7 @@ body.readonly .grid{grid-template-columns:minmax(0,1fr)}
     <p class="lede">Feedback from your teachers: praise, notes, and things they want you to fix. Open actions are listed first until you mark them done.</p>
     <div class="grid">
       <form class="panel w" id="f-remark" autocomplete="off">
-        <h3>Add a remark</h3>
+        <h3 id="r-head">Add a remark</h3>
         <label for="r-subject">Subject<select id="r-subject" name="subjectId" data-subjects required></select></label>
         <label for="r-activity">About activity<select id="r-activity" name="activityId"><option value="">General</option></select></label>
         <label for="r-kind">Type<select id="r-kind" name="kind">
@@ -400,11 +401,12 @@ body.readonly .grid{grid-template-columns:minmax(0,1fr)}
           <div class="attbtns">
             <button type="button" class="ghost" data-pick="proof">+ Photo/Screenshot/Video Proof</button>
           </div>
+          <div class="pending" id="ratt-keep"></div>
           <div class="pending" id="ratt-pending"></div>
           <p class="hint" id="ratt-hint">Checking whether you can attach files…</p>
         </div>
         <input type="file" id="ratt-file" multiple hidden>
-        <button class="btn" type="submit" id="r-post">Add remark</button>
+        <div class="formbtns"><button class="btn" type="submit" id="r-post">Add remark</button><button type="button" class="ghost" id="r-cancel" hidden>Cancel</button></div>
       </form>
       <div class="list" id="list-remarks"></div>
     </div>
@@ -723,7 +725,7 @@ async function renderComments(){
       <div class="meta">${who(c)}<span class="mono">${c.createdAt?ago(c.createdAt):""}</span>${chip(c.subjectId)}${act?`<span>on “${esc(act.title)}”</span>`:""}</div>
       ${c.text?`<div class="note" style="color:var(--ink)">${esc(c.text)}</div>`:""}
       ${atts.length?`<div class="atts">${atts.map(a=>`<figure class="att">${media(a)}<figcaption>${KINDS[a.kind]}</figcaption></figure>`).join("")}</div>`:""}
-    </div><div class="actions">${delBtn("comments",c.id)}</div></div>`; }).join("");
+    </div><div class="actions"><button class="ghost w" data-act="editc" data-id="${esc(c.id)}">Edit</button>${delBtn("comments",c.id)}</div></div>`; }).join("");
     html = html || (isLoading("comments") ? empty("Loading comments…","") : empty("No comments yet","Post a note about a subject or activity, and attach photos, screenshots or videos."));
   } else {
     const items=all;
@@ -757,7 +759,7 @@ function renderRemarks(){
       ${(()=>{ const atts=(Array.isArray(r.attachments)?r.attachments:[]).filter(a=>a&&a.id&&KINDS[a.kind]); return atts.length?`<div class="atts">${atts.map(a=>`<figure class="att">${media(a)}<figcaption>${KINDS[a.kind]}</figcaption></figure>`).join("")}</div>`:""; })()}
       <div class="meta">${s&&s.teacher?`<span>From ${esc(s.teacher)}</span>`:""}${act?`<span>on “${esc(act.title)}”</span>`:""}</div>
     </div><div class="actions">
-      ${r.kind==="action"?`<button class="ghost ${r.resolved?"":"go "}w" data-act="resolve" data-id="${esc(r.id)}">${r.resolved?"Reopen":"Mark done"}</button>`:""}${delBtn("remarks",r.id)}
+      ${r.kind==="action"?`<button class="ghost ${r.resolved?"":"go "}w" data-act="resolve" data-id="${esc(r.id)}">${r.resolved?"Reopen":"Mark done"}</button>`:""}<button class="ghost w" data-act="editr" data-id="${esc(r.id)}">Edit</button>${delBtn("remarks",r.id)}
     </div></div>`;
   }).join("");
   setList("list-remarks", rows || (isLoading("remarks") ? empty("Loading remarks…","") : empty("No remarks yet","Write down feedback from your teachers so you can act on it.")));
@@ -908,16 +910,19 @@ function uploadErr(e){
 }
 function makeAttacher(prefix, noun, pasteTarget){
   const area=$("#"+prefix+"-area"), pendEl=$("#"+prefix+"-pending"), hint=$("#"+prefix+"-hint"), fi=$("#"+prefix+"-file");
-  const pending=[];
+  const pending=[]; const keepEl=$("#"+prefix+"-keep"); let keep=[], removed=[];
+  const drawKeep=()=>{ keepEl.innerHTML = keep.map((a,i)=>{ const u=blobUrl(a.id); return `<div class="pend">${!u?`<div class="missing">?</div>`:a.kind==="video"?`<video src="${esc(u)}" muted playsinline></video>`:`<img src="${esc(u)}" alt="">`}<span class="pk">${KINDS[a.kind]||"File"}</span><button type="button" class="ghost danger" data-unkeep="${i}" aria-label="Remove ${KINDS[a.kind]||"file"}">×</button></div>`; }).join(""); };
   const draw=()=>{ pendEl.innerHTML = pending.map((p,i)=>`<div class="pend">${p.kind==="video"?`<video src="${p.url}" muted playsinline></video>`:`<img src="${p.url}" alt="">`}<span class="pk">${KINDS[p.kind]}</span><button type="button" class="ghost danger" data-unpend="${i}" aria-label="Remove ${KINDS[p.kind]}">×</button></div>`).join(""); };
   const queue=(f,kind)=>{
     const isVid=kind==="video";
     if(!(isVid?VID_TYPES:IMG_TYPES).includes(f.type)){ toast(isVid ? `${f.name||"That video"}: use an MP4 or WebM video.` : `${f.name||"That image"}: use JPG, PNG, GIF or WebP. Convert iPhone HEIC photos to JPG first.`); return; }
     if(f.size>20*1024*1024){ toast(`${f.name||"That file"} is over 20 MB. Choose a smaller file.`); return; }
-    if(pending.length>=10){ toast(`You can attach up to 10 files per ${noun}.`); return; }
+    if(pending.length+keep.length>=10){ toast(`You can attach up to 10 files per ${noun}.`); return; }
     pending.push({file:f,kind,url:URL.createObjectURL(f)}); draw();
   };
   area.addEventListener("click",e=>{
+    const k=e.target.closest("[data-unkeep]");
+    if(k){ const i=Number(k.dataset.unkeep); if(keep[i]){ removed.push(keep[i]); keep.splice(i,1); drawKeep(); } return; }
     if(e.target.closest("[data-pick]")){ fi.accept=IMG_TYPES.concat(VID_TYPES).join(","); fi.value=""; fi.click(); return; }
     const r=e.target.closest("[data-unpend]");
     if(r){ const i=Number(r.dataset.unpend); if(pending[i]){ URL.revokeObjectURL(pending[i].url); pending.splice(i,1); draw(); } }
@@ -930,12 +935,14 @@ function makeAttacher(prefix, noun, pasteTarget){
   });
   return {
     pending,
+    get keep(){ return keep; }, get removed(){ return removed; },
+    setKeep(list){ keep=(list||[]).filter(a=>a&&a.id); removed=[]; drawKeep(); },
     ui(){
       area.querySelectorAll("[data-pick]").forEach(b=>b.disabled=!assets);
       hint.textContent = assets ? `Images: JPG, PNG, GIF or WebP. Videos: MP4 or WebM. Up to 20 MB each, 10 per ${noun}.`
         : mode==="local" ? "Attachments work on the published Coursebook." : "Only people who can edit this Coursebook can attach files.";
     },
-    clear(){ pending.forEach(p=>URL.revokeObjectURL(p.url)); pending.length=0; draw(); },
+    clear(){ pending.forEach(p=>URL.revokeObjectURL(p.url)); pending.length=0; draw(); keep=[]; removed=[]; drawKeep(); },
     discard(atts){ atts.forEach(a=>assets&&assets.delete(a.id).catch(()=>{})); },
     async upload(btn, idle){
       const atts=[];
@@ -953,26 +960,70 @@ function makeAttacher(prefix, noun, pasteTarget){
 const cAtt=makeAttacher("att","comment",$("#c-text")), rAtt=makeAttacher("ratt","remark",$("#r-text"));
 function setAttUI(){ cAtt.ui(); rAtt.ui(); }
 const noPerm="Only people who can edit this Coursebook can attach files.";
+let editC=null, editR=null;
+function resetCommentForm(){
+  editC=null; const f=$("#f-comment"); f.elements.text.value=""; cAtt.clear(); f.classList.remove("editing");
+  $("#c-head").textContent="Add a comment"; $("#c-post").textContent="Post comment"; $("#c-cancel").hidden=true;
+}
+function startEditComment(id){
+  const c=state.comments.find(x=>x.id===id); if(!c) return; editC=id; const f=$("#f-comment");
+  if(subj(c.subjectId)) $("#c-subject").value=c.subjectId;
+  fillSelects(); $("#c-activity").value=c.activityId||"";
+  f.elements.text.value=c.text||""; cAtt.clear(); cAtt.setKeep(Array.isArray(c.attachments)?c.attachments:[]);
+  f.classList.add("editing"); $("#c-head").textContent="Edit comment"; $("#c-post").textContent="Save changes"; $("#c-cancel").hidden=false;
+  f.scrollIntoView({behavior:"smooth",block:"start"}); setTimeout(()=>f.elements.text.focus({preventScroll:true}),300);
+}
+$("#c-cancel").addEventListener("click",()=>{ resetCommentForm(); toast("Edit cancelled"); });
 $("#f-comment").addEventListener("submit",async e=>{ e.preventDefault(); const f=e.target;
   const text=val(f,"text");
-  if(!text && !cAtt.pending.length){ toast("Write a comment or attach a file."); $("#c-text").focus(); return; }
+  if(!text && !cAtt.pending.length && !cAtt.keep.length){ toast("Write a comment or attach a file."); $("#c-text").focus(); return; }
   if(cAtt.pending.length && !assets){ toast(noPerm); return; }
+  const idle=editC?"Save changes":"Post comment";
   const btn=$("#c-post"); btn.disabled=true;
-  const atts=await cAtt.upload(btn,"Post comment"); if(!atts) return;
-  btn.textContent="Posting…";
-  const ok=await add("comments",{text,subjectId:val(f,"subjectId"),activityId:val(f,"activityId"),attachments:atts});
+  const atts=await cAtt.upload(btn,idle); if(!atts) return;
+  btn.textContent=editC?"Saving…":"Posting…";
+  const data={text,subjectId:val(f,"subjectId"),activityId:val(f,"activityId")};
+  if(editC){
+    const removed=cAtt.removed.slice();
+    await upd("comments",editC,{...data,attachments:cAtt.keep.concat(atts)});
+    removed.forEach(a=>assets&&assets.delete(a.id).catch(()=>{}));
+    btn.disabled=false; resetCommentForm(); toast("Comment updated"); return;
+  }
+  const ok=await add("comments",{...data,attachments:atts});
   btn.disabled=false; btn.textContent="Post comment";
   if(ok){ f.elements.text.value=""; cAtt.clear(); toast(atts.length?`Comment posted with ${atts.length} attachment${atts.length===1?"":"s"}`:"Comment posted"); }
   else cAtt.discard(atts);
 });
+function resetRemarkForm(){
+  editR=null; const f=$("#f-remark"); f.elements.text.value=""; f.elements.date.value=todayStr(); f.elements.kind.value="note"; rAtt.clear(); f.classList.remove("editing");
+  $("#r-head").textContent="Add a remark"; $("#r-post").textContent="Add remark"; $("#r-cancel").hidden=true;
+}
+function startEditRemark(id){
+  const r=state.remarks.find(x=>x.id===id); if(!r) return; editR=id; const f=$("#f-remark");
+  if(subj(r.subjectId)) $("#r-subject").value=r.subjectId;
+  fillSelects(); $("#r-activity").value=r.activityId||"";
+  f.elements.kind.value=KIND[r.kind]?r.kind:"note"; f.elements.date.value=r.date||""; f.elements.text.value=r.text||"";
+  rAtt.clear(); rAtt.setKeep(Array.isArray(r.attachments)?r.attachments:[]);
+  f.classList.add("editing"); $("#r-head").textContent="Edit remark"; $("#r-post").textContent="Save changes"; $("#r-cancel").hidden=false;
+  f.scrollIntoView({behavior:"smooth",block:"start"}); setTimeout(()=>f.elements.text.focus({preventScroll:true}),300);
+}
+$("#r-cancel").addEventListener("click",()=>{ resetRemarkForm(); toast("Edit cancelled"); });
 $("#f-remark").addEventListener("submit",async e=>{ e.preventDefault(); const f=e.target;
   const text=val(f,"text"), subjectId=val(f,"subjectId"); if(!subjectId) return;
-  if(!text && !rAtt.pending.length){ toast("Write the remark or attach proof."); $("#r-text").focus(); return; }
+  if(!text && !rAtt.pending.length && !rAtt.keep.length){ toast("Write the remark or attach proof."); $("#r-text").focus(); return; }
   if(rAtt.pending.length && !assets){ toast(noPerm); return; }
+  const idle=editR?"Save changes":"Add remark";
   const btn=$("#r-post"); btn.disabled=true;
-  const atts=await rAtt.upload(btn,"Add remark"); if(!atts) return;
+  const atts=await rAtt.upload(btn,idle); if(!atts) return;
   btn.textContent="Saving…";
-  const ok=await add("remarks",{text,subjectId,activityId:val(f,"activityId"),kind:val(f,"kind")||"note",date:val(f,"date")||todayStr(),resolved:false,attachments:atts});
+  const data={text,subjectId,activityId:val(f,"activityId"),kind:val(f,"kind")||"note",date:val(f,"date")||todayStr()};
+  if(editR){
+    const removed=rAtt.removed.slice();
+    await upd("remarks",editR,{...data,attachments:rAtt.keep.concat(atts)});
+    removed.forEach(a=>assets&&assets.delete(a.id).catch(()=>{}));
+    btn.disabled=false; resetRemarkForm(); toast("Remark updated"); return;
+  }
+  const ok=await add("remarks",{...data,resolved:false,attachments:atts});
   btn.disabled=false; btn.textContent="Add remark";
   if(ok){ f.elements.text.value=""; f.elements.date.value=todayStr(); rAtt.clear(); toast(atts.length?`Remark added with ${atts.length} attachment${atts.length===1?"":"s"}`:"Remark added"); }
   else rAtt.discard(atts);
@@ -1113,6 +1164,8 @@ document.addEventListener("click",e=>{
     location.hash="comments"; renderComments(); scrollTo(0,0);
   }
   else if(act==="callc"){ cact=""; renderComments(); }
+  else if(act==="editc"){ startEditComment(id); }
+  else if(act==="editr"){ startEditRemark(id); }
   else if(act==="addlink"){
     const a=state.activities.find(x=>x.id===id); if(!a) return;
     if(subj(a.subjectId)) $("#l-subject").value=a.subjectId;
