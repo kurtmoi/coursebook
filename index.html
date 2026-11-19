@@ -151,6 +151,9 @@ body.readonly .actlayout{grid-template-columns:minmax(0,1fr)}
 form.panel.editing{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-soft)}
 #sec-activities > p.lede{max-width:none}
 #a-notes{min-height:126px}
+.row .acts2{flex-direction:column;align-items:flex-end;gap:6px}
+.actrow{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+@container (max-width:620px){ .row .acts2{align-items:flex-start} .actrow{justify-content:flex-start} }
 .afilters{display:flex;flex-direction:column;gap:10px;border-top:1px solid var(--line);padding-top:16px;margin-top:16px}
 .afilters h3{margin:0;font:600 .78rem var(--f-body);text-transform:uppercase;letter-spacing:.07em;color:var(--muted)}
 .fnote{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;padding:10px 16px;font-size:.84rem;color:var(--muted)}
@@ -467,7 +470,7 @@ const PIE_COL = {submitted:"var(--ok)", ongoing:"var(--warn)", notcomplete:"var(
 try { const v=localStorage.getItem("cb-afilter"); if(v && (v==="all" || v in ST)) afilter=v; } catch {}
 const KINDS = {photo:"Photo", screenshot:"Screenshot", video:"Video"};
 const lastHTML = {};
-let assets = null, ctab = "comments";
+let assets = null, ctab = "comments", cact = "";
 try { const v=localStorage.getItem("cb-ctab"); if(v==="comments" || v==="proof") ctab=v; else if(v in KINDS) ctab="proof"; } catch {}
 const KIND = {praise:{t:"Praise",k:"ok"}, note:{t:"Note",k:"muted"}, action:{t:"Action needed",k:"warn"}};
 const loaded = {};
@@ -672,7 +675,7 @@ function renderActivities(){
       if(dl && a.submittedAt){ const end=parseDay(dl); end.setHours(23,59,59,999); pill = a.submittedAt<=end ? `<span class="pill ok">On time</span>` : `<span class="pill bad">Late</span>`; }
       when = `${pill}<span class="mono">Submitted ${a.submittedAt?fmtTime(a.submittedAt):""}</span>${a.grade?`<span class="pill muted">Grade ${esc(a.grade)}</span>`:""}`;
     } else when = `<span class="pill ${d.k}">${esc(d.t)}</span>`;
-    const ls=state.links.filter(l=>l.activityId===a.id);
+    const ls=state.links.filter(l=>l.activityId===a.id), nc=state.comments.filter(c=>c.activityId===a.id).length;
     const sub=safeUrl(a.submissionUrl);
     return `<div class="row"><div class="body">
       <div class="meta">${chip(a.subjectId)}<span class="pill ${ST[s].k} ro">${ST[s].t}</span>${when}${a.start||dl?`<span class="mono">${a.start?esc(fmtDay(parseDay(a.start))):"…"} → ${dl?esc(fmtDay(parseDay(dl))):"…"}</span>`:""}</div>
@@ -684,7 +687,7 @@ function renderActivities(){
         <label for="su-${id}">Submission link<input id="su-${id}" data-field="submissionUrl" data-id="${id}" value="${esc(a.submissionUrl||"")}" placeholder="https://…" inputmode="url"></label>
         <label class="sm" for="gr-${id}">Grade<input id="gr-${id}" data-field="grade" data-id="${id}" value="${esc(a.grade||"")}" maxlength="20" placeholder="—"></label>
       </div>`:""}
-    </div><div class="actions">${statusSeg(a)}<button class="ghost w" data-act="edit" data-id="${id}">Edit</button>${delBtn("activities",a.id)}</div></div>`;
+    </div><div class="actions acts2">${statusSeg(a)}<div class="actrow"><button class="ghost w" data-act="edit" data-id="${id}">Edit</button>${delBtn("activities",a.id)}<button class="ghost" data-act="viewc" data-id="${id}">View comments${nc?` (${nc})`:""}</button></div></div></div>`;
   }).join("");
   setList("list-activities", rows ? afNote(list.length)+rows : afActive() && all.length ? empty("No matching activities","Change the search, or press Clear to see everything.") : (isLoading("activities") ? empty("Loading activities…","") :
     !state.subjects.length ? empty("No activities yet","Add a subject first, then add its activities here.") :
@@ -706,7 +709,7 @@ function media(a){
   return a.kind==="video" ? `<video controls preload="metadata" playsinline src="${u}" aria-label="${alt}"></video>` : `<img loading="lazy" src="${u}" alt="${alt}" data-zoom>`;
 }
 async function renderComments(){
-  const list=state.comments.filter(pass).sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
+  const list=state.comments.filter(pass).filter(c=>!cact||c.activityId===cact).sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
   const all=[]; list.forEach(c=>(Array.isArray(c.attachments)?c.attachments:[]).forEach(a=>{ if(a&&a.id&&KINDS[a.kind]) all.push({a,c}); }));
   document.querySelectorAll("#c-tabs button").forEach(b=>{
     const v=b.dataset.v; b.setAttribute("aria-pressed",String(v===ctab));
@@ -732,6 +735,7 @@ async function renderComments(){
       </figcaption></figure>`; }).join("")}</div>`
       : (isLoading("comments") ? empty("Loading…","") : empty("No proof yet","Attach a photo, screenshot or video to a comment with the form."));
   }
+  if(cact){ const ca=state.activities.find(a=>a.id===cact); html=`<div class="fnote"><span>Comments on “${esc(ca?ca.title:"this activity")}”</span><button class="ghost" data-act="callc">Show all comments</button></div>`+html; }
   setList("list-comments", html);
   const ids=[...new Set(list.map(c=>c.authorId).filter(Boolean))];
   if(user && ids.length && user.profiles){
@@ -1101,6 +1105,14 @@ document.addEventListener("click",e=>{
   else if(act==="sfilter"){ setSFilter(b.dataset.v); }
   else if(act==="edit"){ startEdit(id); }
   else if(act==="afclear"){ clearAF(); }
+  else if(act==="viewc"){
+    const a=state.activities.find(x=>x.id===id); if(!a) return;
+    cact=id; ctab="comments";
+    if(subj(a.subjectId)) $("#c-subject").value=a.subjectId;
+    fillSelects(); $("#c-activity").value=a.id;
+    location.hash="comments"; renderComments(); scrollTo(0,0);
+  }
+  else if(act==="callc"){ cact=""; renderComments(); }
   else if(act==="addlink"){
     const a=state.activities.find(x=>x.id===id); if(!a) return;
     if(subj(a.subjectId)) $("#l-subject").value=a.subjectId;
