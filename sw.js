@@ -1,6 +1,6 @@
 /* Coursebook offline worker: keeps the app's own files on the device so it opens without internet.
    Your records and attachments are not here; they live in the browser's database (IndexedDB). */
-const VERSION = "coursebook-v3";
+const VERSION = "coursebook-v4";
 const FONTS = "coursebook-fonts";
 const SHELL = [
   "./",

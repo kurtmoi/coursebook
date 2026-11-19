@@ -139,12 +139,16 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--accent);outline-off
 .dash{display:grid;grid-template-columns:220px minmax(0,1fr);gap:28px;align-items:center;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:20px;margin-bottom:16px}
 @media (max-width:640px){.dash{grid-template-columns:minmax(0,1fr);gap:18px}}
 /* activities: chart card beside the add form, saved list below */
-.actlayout{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:20px;align-items:start;margin-bottom:20px}
+.actlayout{display:grid;grid-template-columns:minmax(0,35fr) minmax(0,65fr);gap:20px;align-items:start;margin-bottom:20px}
 .actlayout .dash{grid-template-columns:minmax(0,1fr);gap:18px;margin-bottom:0;align-items:start}
 .actlayout .dash .legend{max-width:none}
 .actlayout .dash .bar{max-width:none}
 @media (max-width:760px){.actlayout{grid-template-columns:minmax(0,1fr)}}
 body.readonly .actlayout{grid-template-columns:minmax(0,1fr)}
+.dates{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px}
+.formbtns{display:flex;gap:8px}
+.formbtns .btn{flex:1}
+form.panel.editing{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-soft)}
 #pie{width:100%;max-width:220px;height:auto;display:block;margin:0 auto}
 #pie [data-v]{cursor:pointer;transition:opacity .15s}
 #pie.focus [data-v]:not(.on){opacity:.3}
@@ -283,17 +287,20 @@ body.readonly .grid{grid-template-columns:minmax(0,1fr)}
           <button data-act="sfilter" data-v="all"><i style="background:var(--muted)"></i><span>All activities</span><span class="cnt" data-c>0 tasks</span><span class="pc" data-p>100%</span></button>
           <button data-act="sfilter" data-v="submitted"><i style="background:var(--ok)"></i><span>Submitted</span><span class="cnt" data-c>0 tasks</span><span class="pc" data-p>0%</span></button>
           <button data-act="sfilter" data-v="ongoing"><i style="background:var(--warn)"></i><span>Ongoing</span><span class="cnt" data-c>0 tasks</span><span class="pc" data-p>0%</span></button>
-          <button data-act="sfilter" data-v="notcomplete"><i style="background:var(--bad)"></i><span>Not Complete</span><span class="cnt" data-c>0 tasks</span><span class="pc" data-p>0%</span></button>
+          <button data-act="sfilter" data-v="notcomplete"><i style="background:var(--bad)"></i><span>Not Started</span><span class="cnt" data-c>0 tasks</span><span class="pc" data-p>0%</span></button>
         </div>
       </div>
     </div>
       <form class="panel w" id="f-activity" autocomplete="off">
-        <h3>Add an activity</h3>
+        <h3 id="a-head">Add an activity</h3>
         <label for="a-title">Title<input id="a-title" name="title" required maxlength="140" placeholder="e.g. Lab report: osmosis"></label>
         <label for="a-subject">Subject<select id="a-subject" name="subjectId" data-subjects required></select></label>
-        <label for="a-due">Due date<input id="a-due" name="due" type="date"></label>
+        <div class="dates">
+          <label for="a-start">Start date<input id="a-start" name="start" type="date"></label>
+          <label for="a-end">End date<input id="a-end" name="end" type="date"></label>
+        </div>
         <label for="a-status">Status<select id="a-status" name="status">
-          <option value="notcomplete">Not Complete</option>
+          <option value="notcomplete">Not Started</option>
           <option value="ongoing">Ongoing</option>
           <option value="submitted">Submitted</option>
         </select></label>
@@ -303,7 +310,7 @@ body.readonly .grid{grid-template-columns:minmax(0,1fr)}
           <div id="a-links"></div>
           <button type="button" class="ghost" id="a-addlink">+ Add another link</button>
         </div>
-        <button class="btn" type="submit">Add activity</button>
+        <div class="formbtns"><button class="btn" type="submit" id="a-submit">Add activity</button><button type="button" class="ghost" id="a-cancel" hidden>Cancel</button></div>
       </form>
     </div>
     <div class="list" id="list-activities"></div>
@@ -436,7 +443,7 @@ const TABS = ["subjects","activities","links","comments","remarks"];
 const COLS = ["subjects","activities","links","comments","remarks"];
 const state = {subjects:[],activities:[],links:[],comments:[],remarks:[]};
 const todayStr = () => { const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; };
-const ST = {notcomplete:{t:"Not Complete",k:"bad"}, ongoing:{t:"Ongoing",k:"warn"}, submitted:{t:"Submitted",k:"ok"}};
+const ST = {notcomplete:{t:"Not Started",k:"bad"}, ongoing:{t:"Ongoing",k:"warn"}, submitted:{t:"Submitted",k:"ok"}};
 const st = a => a.status==="submitted" ? "submitted" : a.status==="ongoing" ? "ongoing" : "notcomplete";
 let afilter = "all", sfilter = "all";
 try { const v=localStorage.getItem("cb-sfilter"); if(v && (v==="all" || v in ST)) sfilter=v; } catch {}
@@ -470,14 +477,14 @@ function parseDay(d){ const [y,m,dd]=String(d).split("-").map(Number); return ne
 const fmtDay = dt => dt.toLocaleDateString(undefined,{weekday:"short",month:"short",day:"numeric"});
 const fmtTime = ms => new Date(ms).toLocaleDateString(undefined,{month:"short",day:"numeric",year:"numeric"});
 function dueInfo(d){
-  if(!d) return {t:"No due date",k:"muted"};
+  if(!d) return {t:"No end date",k:"muted"};
   const today=new Date(); today.setHours(0,0,0,0);
   const diff=Math.round((parseDay(d)-today)/864e5);
   if(diff<0) return {t:`${-diff} day${diff<-1?"s":""} overdue`,k:"bad"};
-  if(diff===0) return {t:"Due today",k:"warn"};
-  if(diff===1) return {t:"Due tomorrow",k:"warn"};
-  if(diff<=7) return {t:`Due in ${diff} days`,k:"warn"};
-  return {t:"Due "+fmtDay(parseDay(d)),k:"muted"};
+  if(diff===0) return {t:"Ends today",k:"warn"};
+  if(diff===1) return {t:"Ends tomorrow",k:"warn"};
+  if(diff<=7) return {t:`Ends in ${diff} days`,k:"warn"};
+  return {t:"Ends "+fmtDay(parseDay(d)),k:"muted"};
 }
 function ago(ms){
   const m=Math.round((Date.now()-ms)/6e4);
@@ -615,7 +622,7 @@ function renderActivities(){
   const total=all.length, pct=v=> total ? Math.round(n[v]/total*100) : 0;
   drawPie(n,total);
   $("#prog-pct").textContent = pct("submitted")+"%";
-  $("#prog-sub").textContent = total ? `${n.submitted} of ${total} task${total===1?"":"s"} submitted · ${n.ongoing} ongoing · ${n.notcomplete} not complete` : "No activities yet. Add one with the form.";
+  $("#prog-sub").textContent = total ? `${n.submitted} of ${total} task${total===1?"":"s"} submitted · ${n.ongoing} ongoing · ${n.notcomplete} not started` : "No activities yet. Add one with the form.";
   $("#prog-bar").innerHTML = total ? PIE_ORDER.map(v=>`<span style="width:${n[v]/total*100}%;background:${PIE_COL[v]}"></span>`).join("") : "";
   document.querySelectorAll("#legend button").forEach(b=>{
     const v=b.dataset.v, c = v==="all" ? total : n[v];
@@ -625,19 +632,19 @@ function renderActivities(){
   });
   const order={ongoing:0,notcomplete:1,submitted:2};
   const list=all.filter(a=>sfilter==="all"||st(a)===sfilter)
-    .sort((a,b)=>order[st(a)]-order[st(b)] || (a.due||"9999").localeCompare(b.due||"9999"));
+    .sort((a,b)=>order[st(a)]-order[st(b)] || (a.end||a.due||"9999").localeCompare(b.end||b.due||"9999"));
   const rows=list.map(a=>{
-    const s=st(a), d=dueInfo(a.due), id=esc(a.id);
+    const s=st(a), dl=a.end||a.due, d=dueInfo(dl), id=esc(a.id);
     let when;
     if(s==="submitted"){
       let pill="";
-      if(a.due && a.submittedAt){ const end=parseDay(a.due); end.setHours(23,59,59,999); pill = a.submittedAt<=end ? `<span class="pill ok">On time</span>` : `<span class="pill bad">Late</span>`; }
+      if(dl && a.submittedAt){ const end=parseDay(dl); end.setHours(23,59,59,999); pill = a.submittedAt<=end ? `<span class="pill ok">On time</span>` : `<span class="pill bad">Late</span>`; }
       when = `${pill}<span class="mono">Submitted ${a.submittedAt?fmtTime(a.submittedAt):""}</span>${a.grade?`<span class="pill muted">Grade ${esc(a.grade)}</span>`:""}`;
     } else when = `<span class="pill ${d.k}">${esc(d.t)}</span>`;
     const ls=state.links.filter(l=>l.activityId===a.id);
     const sub=safeUrl(a.submissionUrl);
     return `<div class="row"><div class="body">
-      <div class="meta">${chip(a.subjectId)}<span class="pill ${ST[s].k} ro">${ST[s].t}</span>${when}</div>
+      <div class="meta">${chip(a.subjectId)}<span class="pill ${ST[s].k} ro">${ST[s].t}</span>${when}${a.start||dl?`<span class="mono">${a.start?esc(fmtDay(parseDay(a.start))):"…"} → ${dl?esc(fmtDay(parseDay(dl))):"…"}</span>`:""}</div>
       <div class="title">${esc(a.title)}</div>
       ${a.notes?`<div class="note">${esc(a.notes)}</div>`:""}
       ${ls.length?`<div class="alinks"><span class="lbl">Links</span>${ls.map(l=>linkA(l.url,l.title)).join("")}</div>`:""}
@@ -646,7 +653,7 @@ function renderActivities(){
         <label for="su-${id}">Submission link<input id="su-${id}" data-field="submissionUrl" data-id="${id}" value="${esc(a.submissionUrl||"")}" placeholder="https://…" inputmode="url"></label>
         <label class="sm" for="gr-${id}">Grade<input id="gr-${id}" data-field="grade" data-id="${id}" value="${esc(a.grade||"")}" maxlength="20" placeholder="—"></label>
       </div>`:""}
-    </div><div class="actions">${statusSeg(a)}<button class="ghost w" data-act="addlink" data-id="${id}">Add link</button>${delBtn("activities",a.id)}</div></div>`;
+    </div><div class="actions">${statusSeg(a)}<button class="ghost w" data-act="edit" data-id="${id}">Edit</button>${delBtn("activities",a.id)}</div></div>`;
   }).join("");
   setList("list-activities", rows || (isLoading("activities") ? empty("Loading activities…","") :
     !state.subjects.length ? empty("No activities yet","Add a subject first, then add its activities here.") :
@@ -761,11 +768,12 @@ $("#filter").addEventListener("change",e=>{ filter=e.target.value; try{localStor
 $("#c-subject").addEventListener("change",fillSelects);
 $("#l-subject").addEventListener("change",fillSelects);
 let lrowN=0;
-function addLinkRow(focus){
+function addLinkRow(focus,l){
   const n=++lrowN, d=document.createElement("div"); d.className="lrow";
   d.innerHTML=`<input class="lt" id="a-lt-${n}" maxlength="140" placeholder="Link title (optional)" aria-label="Link title">
     <input class="lu" id="a-lu-${n}" maxlength="2000" placeholder="https://…" inputmode="url" aria-label="Web address">
     <button type="button" class="ghost danger" data-rmlink aria-label="Remove this link">Remove</button>`;
+  if(l){ d.dataset.lid=l.id; d.querySelector(".lt").value=l.title||""; d.querySelector(".lu").value=l.url||""; }
   $("#a-links").appendChild(d);
   if(focus) d.querySelector(".lt").focus();
 }
@@ -785,22 +793,55 @@ $("#f-subject").addEventListener("submit",async e=>{ e.preventDefault(); const f
   const name=val(f,"name"); if(!name) return;
   if(await add("subjects",{name,teacher:val(f,"teacher"),color:Number(f.elements.color.value)||0})){ f.reset(); toast(`Added ${name}`); }
 });
+let editingId=null;
+function resetActivityForm(){
+  const f=$("#f-activity"); editingId=null;
+  f.elements.title.value=""; f.elements.start.value=""; f.elements.end.value=""; f.elements.notes.value=""; f.elements.status.value="notcomplete";
+  resetLinkRows(); f.classList.remove("editing");
+  $("#a-head").textContent="Add an activity"; $("#a-submit").textContent="Add activity"; $("#a-cancel").hidden=true;
+}
+function startEdit(id){
+  const a=state.activities.find(x=>x.id===id); if(!a) return;
+  const f=$("#f-activity"); editingId=id;
+  if(subj(a.subjectId)) f.elements.subjectId.value=a.subjectId;
+  f.elements.title.value=a.title||""; f.elements.start.value=a.start||""; f.elements.end.value=a.end||a.due||"";
+  f.elements.notes.value=a.notes||""; f.elements.status.value=st(a);
+  $("#a-links").innerHTML="";
+  const ls=state.links.filter(l=>l.activityId===id);
+  if(ls.length) ls.forEach(l=>addLinkRow(false,l)); else addLinkRow(false);
+  f.classList.add("editing"); $("#a-head").textContent="Edit activity"; $("#a-submit").textContent="Save changes"; $("#a-cancel").hidden=false;
+  f.scrollIntoView({behavior:"smooth",block:"start"}); setTimeout(()=>f.elements.title.focus({preventScroll:true}),300);
+}
+$("#a-cancel").addEventListener("click",()=>{ resetActivityForm(); toast("Edit cancelled"); });
 $("#f-activity").addEventListener("submit",async e=>{ e.preventDefault(); const f=e.target;
   const title=val(f,"title"), subjectId=val(f,"subjectId"); if(!title||!subjectId) return;
-  const status=val(f,"status")||"notcomplete";
+  const status=val(f,"status")||"notcomplete", start=val(f,"start"), end=val(f,"end");
+  if(start && end && end<start){ toast("The end date is before the start date. Fix one of them."); f.elements.end.focus(); return; }
   const links=[];
   for(const r of document.querySelectorAll("#a-links .lrow")){
     const raw=r.querySelector(".lu").value.trim(), lt=r.querySelector(".lt").value.trim();
     if(!raw){ if(lt){ toast("Add a web address for that link, or clear its title."); r.querySelector(".lu").focus(); return; } continue; }
     const u=safeUrl(raw); if(!u){ toast("Enter a web address that starts with http:// or https://"); r.querySelector(".lu").focus(); return; }
-    links.push({title:lt||host(u),url:u});
+    links.push({lid:r.dataset.lid||"",title:lt||host(u),url:u});
   }
-  const data={title,subjectId,due:val(f,"due"),notes:val(f,"notes"),status};
+  if(editingId){
+    const id=editingId, a=state.activities.find(x=>x.id===id); if(!a){ resetActivityForm(); return; }
+    const patch={title,subjectId,start,end,due:"",notes:val(f,"notes"),status};
+    if(status==="submitted" && st(a)!=="submitted") patch.submittedAt=Date.now();
+    if(status!=="submitted") patch.submittedAt=null;
+    await upd("activities",id,patch);
+    const keep=new Set(links.map(l=>l.lid).filter(Boolean));
+    for(const l of state.links.filter(x=>x.activityId===id)) if(!keep.has(l.id)) await del("links",l.id);
+    for(const l of links){ const {lid,...rest}=l; if(lid) await upd("links",lid,{...rest,subjectId}); else await add("links",{...rest,subjectId,activityId:id}); }
+    resetActivityForm(); toast("Activity updated");
+    return;
+  }
+  const data={title,subjectId,start,end,notes:val(f,"notes"),status};
   if(status==="submitted") data.submittedAt=Date.now();
   const newId=await add("activities",data);
   if(!newId) return;
-  for(const l of links) await add("links",{...l,subjectId,activityId:newId});
-  f.elements.title.value=""; f.elements.due.value=""; f.elements.notes.value=""; f.elements.status.value="notcomplete"; resetLinkRows();
+  for(const l of links){ const {lid,...rest}=l; await add("links",{...rest,subjectId,activityId:newId}); }
+  resetActivityForm();
   toast(`Activity added as ${ST[status].t}${links.length?` with ${links.length} link${links.length===1?"":"s"}`:""}`);
 });
 $("#f-link").addEventListener("submit",async e=>{ e.preventDefault(); const f=e.target;
@@ -1016,6 +1057,7 @@ document.addEventListener("click",e=>{
     toast(`Set to ${ST[v].t}`);
   }
   else if(act==="sfilter"){ setSFilter(b.dataset.v); }
+  else if(act==="edit"){ startEdit(id); }
   else if(act==="addlink"){
     const a=state.activities.find(x=>x.id===id); if(!a) return;
     if(subj(a.subjectId)) $("#l-subject").value=a.subjectId;
