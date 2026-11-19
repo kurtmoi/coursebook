@@ -157,6 +157,28 @@ form.panel.editing{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-
 .tpprev{width:64px;height:64px;border-radius:50%;background:var(--bg);border:1px dashed var(--line);display:grid;place-items:center;overflow:hidden;flex-shrink:0;font-size:.7rem;color:var(--muted);text-align:center}
 .tpprev img{width:100%;height:100%;object-fit:cover}
 .tpbtns{display:flex;gap:6px;flex-wrap:wrap}
+.pmlock{max-width:420px;margin:0 auto;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:24px;display:flex;flex-direction:column;gap:12px;text-align:center}
+.pmlock h3{margin:0;font:700 1.15rem var(--f-display);color:var(--ink)}
+.pmlock form{display:flex;flex-direction:column;gap:10px;text-align:left}
+.pin{font:600 1.6rem var(--f-mono);letter-spacing:.6em;text-align:center;padding:10px 0 10px .6em}
+.pmbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:flex-end;margin-bottom:14px}
+.pmbar .hint{margin-right:auto}
+.pmstats{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin-bottom:14px}
+.pmtile{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:12px 14px;display:flex;flex-direction:column;gap:2px}
+.pmv{font:700 1.6rem/1.1 var(--f-display);font-variant-numeric:tabular-nums;color:var(--ink)}
+.pml{font-size:.74rem;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.pmtile.ok .pmv{color:var(--ok)}
+.pmtile.warn .pmv{color:var(--warn)}
+.pmtile.bad .pmv{color:var(--bad)}
+.pmgrid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px;margin-bottom:22px}
+@media (max-width:760px){.pmgrid{grid-template-columns:minmax(0,1fr)}}
+.pmcard{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.pmcard h3,.pmh{margin:0;font:600 .78rem var(--f-body);text-transform:uppercase;letter-spacing:.07em;color:var(--muted)}
+.pmh{margin:0 0 12px}
+.pmitem{display:flex;flex-direction:column;gap:4px;padding-top:10px;border-top:1px solid var(--line)}
+.pmitem:first-child{border-top:0;padding-top:0}
+.pmitem-t{font-weight:600;overflow-wrap:anywhere}
+#j-text{min-height:120px}
 .brand{align-items:center}
 .titleblock{display:flex;flex-direction:column;gap:3px;min-width:0}
 .owner{background:none;border:0;padding:0;text-align:left;color:var(--muted);font:500 .95rem var(--f-body);cursor:pointer;border-radius:4px}
@@ -264,6 +286,7 @@ body.readonly .grid{grid-template-columns:minmax(0,1fr)}
       <a href="#links" role="tab" data-tab="links">Links <span class="n" id="n-links">0</span></a>
       <a href="#comments" role="tab" data-tab="comments">Comments <span class="n" id="n-comments">0</span></a>
       <a href="#remarks" role="tab" data-tab="remarks">Teacher Remarks <span class="n" id="n-remarks">0</span></a>
+      <a href="#parents" role="tab" data-tab="parents">Parents Monitoring</a>
     </nav>
   </div>
 </header>
@@ -431,6 +454,43 @@ body.readonly .grid{grid-template-columns:minmax(0,1fr)}
       <div class="list" id="list-remarks"></div>
     </div>
   </section>
+  <section id="sec-parents" data-sec="parents" hidden>
+    <h2>Parents Monitoring</h2>
+    <p class="lede">A private space for parents: see how school activities are going and keep a journal. Protected by a 4-digit code.</p>
+    <div class="pmlock" id="pm-lock">
+      <h3 id="pm-lock-title">Loading…</h3>
+      <p class="hint" id="pm-lock-msg">This section is for parents only.</p>
+      <form id="pm-pin-form" autocomplete="off" hidden>
+        <label for="pm-pin">4-digit code<input id="pm-pin" class="pin" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="4" autocomplete="off"></label>
+        <label for="pm-pin2" id="pm-pin2-wrap" hidden>Type the code again<input id="pm-pin2" class="pin" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="4" autocomplete="off"></label>
+        <button class="btn" type="submit" id="pm-pin-btn">Unlock</button>
+        <button type="button" class="ghost" id="pm-change-cancel" hidden>Cancel</button>
+      </form>
+      <button type="button" class="ghost" id="pm-forgot" hidden>Forgot the code?</button>
+      <div class="confirm" id="pm-reset" hidden><p>Resetting removes the code and erases every parent journal entry, so nobody can read them without the code. Activities aren't affected.</p><div class="copyrow"><button type="button" class="btn danger" id="pm-reset-go">Reset and erase journal</button><button type="button" class="ghost" id="pm-reset-cancel">Cancel</button></div></div>
+    </div>
+    <div id="pm-body" hidden>
+      <div class="pmbar"><span class="hint">Unlocked. Leaving this tab locks it again.</span><button type="button" class="ghost" id="pm-change">Change code</button><button type="button" class="ghost" id="pm-lockbtn">Lock</button></div>
+      <div class="pmstats" id="pm-stats"></div>
+      <div class="pmgrid">
+        <div class="pmcard"><h3>Needs attention</h3><div id="pm-attn"></div></div>
+        <div class="pmcard"><h3>Recently submitted</h3><div id="pm-recent"></div></div>
+      </div>
+      <h3 class="pmh">Parent's journal</h3>
+      <div class="grid">
+        <form class="panel" id="f-journal" autocomplete="off">
+          <h3 id="j-head">Add a journal entry</h3>
+          <label for="j-date">Date<input id="j-date" name="date" type="date"></label>
+          <label for="j-subject">Subject<select id="j-subject" name="subjectId"><option value="">No subject</option></select></label>
+          <label for="j-other" id="j-other-wrap" hidden>Subject name<input id="j-other" name="subjectText" maxlength="80" placeholder="Type the subject"></label>
+          <label for="j-activity">Related activity<select id="j-activity" name="activityId"><option value="">None</option></select></label>
+          <label for="j-text">Entry<textarea id="j-text" name="text" maxlength="4000" placeholder="What did you notice, discuss or agree on?"></textarea></label>
+          <div class="formbtns"><button class="btn" type="submit" id="j-submit">Save entry</button><button type="button" class="ghost" id="j-cancel" hidden>Cancel</button></div>
+        </form>
+        <div class="list" id="list-journal"></div>
+      </div>
+    </div>
+  </section>
 </main>
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 <div class="lightbox" id="lb" hidden role="dialog" aria-label="Photo viewer"><img alt=""></div>
@@ -479,9 +539,9 @@ body.readonly .grid{grid-template-columns:minmax(0,1fr)}
 
 <script>
 (() => {
-const TABS = ["subjects","activities","links","comments","remarks"];
-const COLS = ["subjects","activities","links","comments","remarks"];
-const state = {subjects:[],activities:[],links:[],comments:[],remarks:[]};
+const TABS = ["subjects","activities","links","comments","remarks","parents"];
+const COLS = ["subjects","activities","links","comments","remarks","journal"];
+const state = {subjects:[],activities:[],links:[],comments:[],remarks:[],journal:[]};
 let ownerName="";
 const todayStr = () => { const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; };
 const ST = {notcomplete:{t:"Not Started",k:"bad"}, ongoing:{t:"Ongoing",k:"warn"}, submitted:{t:"Submitted",k:"ok"}};
@@ -543,7 +603,7 @@ const host = u => { try{ return new URL(u).hostname.replace(/^www\./,""); }catch
 const rid = () => Math.random().toString(36).slice(2,12);
 
 /* ---------- device storage (IndexedDB) ---------- */
-const DB_NAME="coursebook", DB_VER=2, STORES=[...COLS,"files","settings"];
+const DB_NAME="coursebook", DB_VER=3, STORES=[...COLS,"files","settings"];
 let idb=null;
 const reqP = r => new Promise((res,rej)=>{ r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error); });
 const done = t => new Promise((res,rej)=>{ t.oncomplete=()=>res(); t.onerror=()=>rej(t.error); t.onabort=()=>rej(t.error||new Error("aborted")); });
@@ -601,8 +661,8 @@ async function reloadAll(){
     fileURLs.forEach(u=>URL.revokeObjectURL(u)); fileURLs.clear();
     try{ for(const f of await idbAll("files")) if(f && f.blob) fileURLs.set(f.id,URL.createObjectURL(f.blob)); }catch{}
   }
-  if(idb){ try{ const o=(await idbAll("settings")).find(x=>x.id==="owner"); ownerName=(o&&o.value)||""; }catch{} }
-  renderOwner();
+  if(idb){ try{ const all=await idbAll("settings"); const o=all.find(x=>x.id==="owner"); ownerName=(o&&o.value)||""; const p=all.find(x=>x.id==="parentPin"); parentPin=p&&p.hash?{hash:p.hash,salt:p.salt}:null; }catch{} }
+  renderOwner(); pmReady=true; pmShow();
   Object.keys(lastHTML).forEach(k=>delete lastHTML[k]);
   render();
 }
@@ -808,7 +868,7 @@ function fillSelects(){
     ca.innerHTML=`<option value="">General</option>`+state.activities.filter(a=>a.subjectId===cs).map(a=>`<option value="${esc(a.id)}">${esc(a.title)}</option>`).join("");
     if([...ca.options].some(o=>o.value===cv)) ca.value=cv;
   });
-  document.querySelectorAll("form.panel .btn").forEach(b=>{ if(b.closest("#f-subject")) return; b.disabled=!subs.length; });
+  document.querySelectorAll("form.panel .btn").forEach(b=>{ if(b.closest("#f-subject")||b.closest("#f-journal")) return; b.disabled=!subs.length; });
 }
 function counts(){
   $("#n-subjects").textContent=state.subjects.length;
@@ -817,13 +877,15 @@ function counts(){
   $("#n-comments").textContent=state.comments.filter(pass).length;
   $("#n-remarks").textContent=state.remarks.filter(pass).length;
 }
-function render(){ fillSelects(); counts(); renderSubjects(); renderActivities(); renderLinks(); renderComments(); renderRemarks(); }
+function render(){ fillSelects(); counts(); renderSubjects(); renderActivities(); renderLinks(); renderComments(); renderRemarks(); renderParents(); }
 
 /* ---------- tabs ---------- */
 function showTab(){
   let t=location.hash.slice(1); if(t==="submitted"||t==="status") t="activities"; if(!TABS.includes(t)) t="subjects";
   document.querySelectorAll("section[data-sec]").forEach(s=>s.hidden=s.dataset.sec!==t);
   document.querySelectorAll("nav a").forEach(a=>a.setAttribute("aria-selected",String(a.dataset.tab===t)));
+  if(t!=="parents"&&pmUnlocked) pmLock();
+  if(t==="parents") pmShow();
 }
 addEventListener("hashchange",showTab);
 
@@ -1239,6 +1301,7 @@ document.addEventListener("click",e=>{
   else if(act==="callc"){ cact=""; renderComments(); }
   else if(act==="editc"){ startEditComment(id); }
   else if(act==="edits"){ startEditSubject(id); }
+  else if(act==="editj"){ startEditJournal(id); }
   else if(act==="editr"){ startEditRemark(id); }
   else if(act==="addlink"){
     const a=state.activities.find(x=>x.id===id); if(!a) return;
@@ -1277,6 +1340,129 @@ $("#owner-form").addEventListener("submit",async e=>{ e.preventDefault();
   toast(v?`Saved: School Task Monitor of ${v}`:"Name removed");
 });
 renderOwner();
+async function savePin(rec){ if(!idb){ toast("This browser is blocking storage, so the code can't be saved."); return false; } try{ await idbPut("settings",{id:"parentPin",...rec}); bcPost(); return true; }catch(e){ onErr(e); return false; } }
+async function clearPin(){ if(idb){ try{ await idbDel("settings","parentPin"); bcPost(); }catch{} } }
+/* parents monitoring: 4-digit code, activity overview, journal */
+let pmUnlocked=false, pmReady=false, pmMode="unlock", pmFails=0, pmWaitUntil=0, editJ=null, parentPin=null;
+const PM_OTHER="__other";
+async function pinHash(pin,salt){
+  const txt=salt+":"+pin;
+  try{ if(window.crypto&&crypto.subtle){ const h=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(txt)); return [...new Uint8Array(h)].map(b=>b.toString(16).padStart(2,"0")).join(""); } }catch{}
+  let h=2166136261; for(const ch of txt){ h^=ch.charCodeAt(0); h=Math.imul(h,16777619)>>>0; } return "f"+h.toString(16);
+}
+function pmShow(){
+  const locked=!pmUnlocked||pmMode==="change";
+  $("#pm-lock").hidden=!locked; $("#pm-body").hidden=locked;
+  if(!locked) return;
+  $("#pm-pin-form").hidden=!pmReady; $("#pm-reset").hidden=true;
+  if(!pmReady){ $("#pm-lock-title").textContent="Loading…"; $("#pm-forgot").hidden=true; return; }
+  const setting=!parentPin||pmMode==="change";
+  $("#pm-lock-title").textContent=pmMode==="change"?"Choose a new parent code":setting?"Set a parent code":"Enter the parent code";
+  $("#pm-lock-msg").textContent=setting?"Choose a 4-digit code that only parents know. You'll need it every time you open this tab.":"This section is for parents only.";
+  $("#pm-pin2-wrap").hidden=!setting; $("#pm-pin-btn").textContent=setting?"Save code":"Unlock";
+  $("#pm-forgot").hidden=setting; $("#pm-change-cancel").hidden=pmMode!=="change";
+}
+function pmLock(){
+  pmUnlocked=false; pmMode="unlock";
+  ["pm-stats","pm-attn","pm-recent","list-journal"].forEach(id=>{ const el=document.getElementById(id); if(el) el.innerHTML=""; delete lastHTML[id]; });
+  resetJournalForm(); pmShow();
+}
+$("#pm-pin-form").addEventListener("submit",async e=>{ e.preventDefault();
+  const pin=$("#pm-pin").value.trim(), pin2=$("#pm-pin2").value.trim();
+  if(!/^\d{4}$/.test(pin)){ toast("Enter exactly 4 digits."); $("#pm-pin").focus(); return; }
+  const setting=!parentPin||pmMode==="change";
+  if(setting){
+    if(pin!==pin2){ toast("The two codes don't match. Type the same 4 digits twice."); $("#pm-pin2").focus(); return; }
+    const salt=[...crypto.getRandomValues(new Uint8Array(8))].map(b=>b.toString(16).padStart(2,"0")).join("");
+    const rec={hash:await pinHash(pin,salt),salt};
+    if(!(await savePin(rec))) return;
+    parentPin=rec; toast(pmMode==="change"?"Parent code changed":"Parent code set");
+  } else {
+    if(Date.now()<pmWaitUntil){ toast(`Too many tries. Wait ${Math.ceil((pmWaitUntil-Date.now())/1000)} seconds.`); return; }
+    if(await pinHash(pin,parentPin.salt)!==parentPin.hash){
+      pmFails++; $("#pm-pin").value=""; $("#pm-pin").focus();
+      if(pmFails>=5){ pmFails=0; pmWaitUntil=Date.now()+30000; toast("Wrong code 5 times. Try again in 30 seconds."); } else toast("That code isn't right.");
+      return;
+    }
+    pmFails=0;
+  }
+  $("#pm-pin").value=""; $("#pm-pin2").value="";
+  pmUnlocked=true; pmMode="unlock"; pmShow(); renderParents();
+});
+$("#pm-forgot").addEventListener("click",()=>{ $("#pm-reset").hidden=false; });
+$("#pm-reset-cancel").addEventListener("click",()=>{ $("#pm-reset").hidden=true; });
+$("#pm-reset-go").addEventListener("click",async()=>{
+  for(const j of state.journal.slice()) await del("journal",j.id);
+  await clearPin(); parentPin=null; pmLock(); toast("Code removed and journal erased. Set a new code.");
+});
+$("#pm-lockbtn").addEventListener("click",()=>{ pmLock(); toast("Locked"); });
+$("#pm-change").addEventListener("click",()=>{ pmMode="change"; pmShow(); $("#pm-pin").focus(); });
+$("#pm-change-cancel").addEventListener("click",()=>{ pmMode="unlock"; $("#pm-pin").value=""; $("#pm-pin2").value=""; pmShow(); });
+document.addEventListener("visibilitychange",()=>{ if(document.hidden&&pmUnlocked) pmLock(); });
+function fillJournalSelects(){
+  const sel=$("#j-subject"), v=sel.value;
+  const subs=[...state.subjects].sort((a,b)=>String(a.name).localeCompare(String(b.name)));
+  sel.innerHTML=`<option value="">No subject</option>`+subs.map(s=>`<option value="${esc(s.id)}">${esc(s.name)}</option>`).join("")+`<option value="${PM_OTHER}">Other (type it)</option>`;
+  if([...sel.options].some(o=>o.value===v)) sel.value=v;
+  $("#j-other-wrap").hidden=sel.value!==PM_OTHER;
+  const as=$("#j-activity"), av=as.value, sid=sel.value;
+  const acts=state.activities.filter(a=>!sid||sid===PM_OTHER||a.subjectId===sid);
+  as.innerHTML=`<option value="">None</option>`+acts.map(a=>`<option value="${esc(a.id)}">${esc(a.title)}</option>`).join("");
+  if([...as.options].some(o=>o.value===av)) as.value=av;
+}
+$("#j-subject").addEventListener("change",fillJournalSelects);
+function renderParents(){
+  if(!pmUnlocked||pmMode==="change") return;
+  const acts=state.activities.filter(pass);
+  const n={notcomplete:0,ongoing:0,submitted:0}; acts.forEach(a=>n[st(a)]++);
+  const today=todayStr(), dl=a=>a.end||a.due||"";
+  const overdue=acts.filter(a=>st(a)!=="submitted"&&dl(a)&&dl(a)<today);
+  const pct=acts.length?Math.round(n.submitted/acts.length*100):0;
+  $("#pm-stats").innerHTML=[["Activities",acts.length,""],["Submitted",pct+"%","ok"],["Ongoing",n.ongoing,"warn"],["Not Started",n.notcomplete,"bad"],["Overdue",overdue.length,overdue.length?"bad":""]]
+    .map(([l,v,k])=>`<div class="pmtile ${k}"><span class="pmv">${v}</span><span class="pml">${l}</span></div>`).join("");
+  const sd=new Date(); sd.setDate(sd.getDate()+7);
+  const soon=`${sd.getFullYear()}-${String(sd.getMonth()+1).padStart(2,"0")}-${String(sd.getDate()).padStart(2,"0")}`;
+  const item=(a,extra)=>`<div class="pmitem"><div class="pmitem-t">${esc(a.title)}</div><div class="meta">${chip(a.subjectId)}${extra}</div></div>`;
+  const attn=acts.filter(a=>st(a)!=="submitted"&&dl(a)&&dl(a)<=soon).sort((a,b)=>dl(a).localeCompare(dl(b)));
+  $("#pm-attn").innerHTML=attn.length?attn.slice(0,8).map(a=>{ const d=dueInfo(dl(a)); return item(a,`<span class="pill ${ST[st(a)].k}">${ST[st(a)].t}</span><span class="pill ${d.k}">${esc(d.t)}</span>`); }).join(""):`<p class="hint">Nothing overdue or ending in the next 7 days.</p>`;
+  const rec=acts.filter(a=>st(a)==="submitted").sort((a,b)=>(b.submittedAt||0)-(a.submittedAt||0)).slice(0,5);
+  $("#pm-recent").innerHTML=rec.length?rec.map(a=>{ let p=""; if(dl(a)&&a.submittedAt){ const e=parseDay(dl(a)); e.setHours(23,59,59,999); p=a.submittedAt<=e.getTime()?`<span class="pill ok">On time</span>`:`<span class="pill bad">Late</span>`; } return item(a,`${p}<span class="mono">${a.submittedAt?fmtTime(a.submittedAt):""}</span>${a.grade?`<span class="pill muted">Grade ${esc(a.grade)}</span>`:""}`); }).join(""):`<p class="hint">No submitted activities yet.</p>`;
+  fillJournalSelects();
+  const list=[...state.journal].sort((a,b)=>String(b.date||"").localeCompare(String(a.date||""))||(b.createdAt||0)-(a.createdAt||0));
+  const rows=list.map(j=>{
+    const act=j.activityId&&state.activities.find(a=>a.id===j.activityId);
+    const sub=j.subjectId&&subj(j.subjectId)?chip(j.subjectId):j.subjectText?`<span class="chip"><i style="background:var(--muted)"></i>${esc(j.subjectText)}</span>`:"";
+    return `<div class="row"><div class="body">
+      <div class="meta"><span class="mono">${j.date?esc(fmtDay(parseDay(j.date))):""}</span>${sub}${act?`<span>on “${esc(act.title)}”</span>`:""}</div>
+      <div class="note" style="color:var(--ink)">${esc(j.text)}</div>
+    </div><div class="actions"><button class="ghost" data-act="editj" data-id="${esc(j.id)}">Edit</button>${delBtn("journal",j.id)}</div></div>`;
+  }).join("");
+  setList("list-journal",rows||(isLoading("journal")?empty("Loading journal…",""):empty("No journal entries yet","Write your first entry with the form.")));
+}
+function resetJournalForm(){
+  const f=$("#f-journal"); editJ=null; f.reset(); $("#j-date").value=todayStr(); $("#j-other-wrap").hidden=true; f.classList.remove("editing");
+  $("#j-head").textContent="Add a journal entry"; $("#j-submit").textContent="Save entry"; $("#j-cancel").hidden=true;
+}
+function startEditJournal(id){
+  const j=state.journal.find(x=>x.id===id); if(!j) return; editJ=id; const f=$("#f-journal");
+  fillJournalSelects(); $("#j-subject").value=j.subjectId&&subj(j.subjectId)?j.subjectId:(j.subjectText?PM_OTHER:""); fillJournalSelects();
+  $("#j-other").value=j.subjectText||""; $("#j-activity").value=j.activityId||""; $("#j-date").value=j.date||""; $("#j-text").value=j.text||"";
+  f.classList.add("editing"); $("#j-head").textContent="Edit journal entry"; $("#j-submit").textContent="Save changes"; $("#j-cancel").hidden=false;
+  f.scrollIntoView({behavior:"smooth",block:"start"}); setTimeout(()=>$("#j-text").focus({preventScroll:true}),300);
+}
+$("#j-cancel").addEventListener("click",()=>{ resetJournalForm(); toast("Edit cancelled"); });
+$("#f-journal").addEventListener("submit",async e=>{ e.preventDefault();
+  if(!pmUnlocked){ toast("Unlock with the parent code first."); return; }
+  const date=$("#j-date").value||todayStr(), sv=$("#j-subject").value, text=$("#j-text").value.trim();
+  if(!text){ toast("Write something in the entry."); $("#j-text").focus(); return; }
+  const other=sv===PM_OTHER, subjectText=other?$("#j-other").value.trim().replace(/\s+/g," "):"";
+  if(other&&!subjectText){ toast("Type the subject, or choose one from the list."); $("#j-other").focus(); return; }
+  const data={date,subjectId:other?"":sv,subjectText,activityId:$("#j-activity").value,text};
+  if(editJ){ await upd("journal",editJ,data); toast("Journal entry updated"); }
+  else if(await add("journal",data)) toast("Journal entry saved"); else return;
+  resetJournalForm();
+});
+resetJournalForm(); pmShow();
 /* ---------- boot ---------- */
 function updateNet(){ if(mode!=="device") return; setStatus(navigator.onLine ? "Saved on this device" : "Offline · saved on this device"); }
 addEventListener("online",updateNet); addEventListener("offline",updateNet);
@@ -1285,7 +1471,7 @@ showTab(); render();
   myId="me"; assets=deviceAssets; setAttUI();
   try{ idb=await openDB(); }catch{ idb=null; }
   if(!idb){
-    mode="local"; COLS.forEach(c=>loaded[c]=true); setStatus("Not saved · storage blocked"); render();
+    mode="local"; COLS.forEach(c=>loaded[c]=true); setStatus("Not saved · storage blocked"); pmReady=true; pmShow(); render();
     toast("This browser is blocking storage, so changes won't be kept. Turn off private browsing.");
     return;
   }
