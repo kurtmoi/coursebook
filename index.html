@@ -270,6 +270,8 @@ img[data-zoom]{cursor:zoom-in}
 .sheet ol{margin:0;padding-left:1.3em;display:flex;flex-direction:column;gap:8px}
 .sheet .note2{font-size:.85rem;color:var(--muted);margin:0}
 .copyrow{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.fsbar{background:var(--accent-soft);border-bottom:1px solid var(--line)}
+.fsbar .wrap{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap;padding-top:8px;padding-bottom:8px;font-size:.9rem}
 .copyrow code{font:500 .8rem var(--f-mono);background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:6px 8px;overflow-wrap:anywhere;user-select:all;flex:1 1 220px;min-width:0}
 .ro{display:none}
 body.readonly .ro{display:inline}
@@ -299,6 +301,7 @@ body.readonly .grid{grid-template-columns:minmax(0,1fr)}
     </nav>
   </div>
 </header>
+<div class="fsbar" id="fs-bar" hidden><div class="wrap"><span>Click Reconnect so School Task Monitor can keep saving to your <strong>School Task Monitor</strong> folder.</span><button type="button" class="btn" id="fs-reconnect">Reconnect folder</button></div></div>
 
 <main class="wrap">
   <section id="sec-subjects" data-sec="subjects">
@@ -539,6 +542,22 @@ body.readonly .grid{grid-template-columns:minmax(0,1fr)}
         </ol>
       </div>
     </section>
+    <section class="sheet-sec" id="fs-sec" hidden>
+      <h3>Save to a folder on this computer</h3>
+      <p class="note2" id="fs-state"></p>
+      <div class="copyrow">
+        <button type="button" class="btn" id="fs-pick">Choose Documents folder</button>
+        <button type="button" class="ghost" id="fs-load" hidden>Load from folder</button>
+        <button type="button" class="ghost" id="fs-off" hidden>Stop saving to folder</button>
+      </div>
+      <div class="confirm" id="fs-confirm" hidden>
+        <p id="fs-msg"></p>
+        <div class="copyrow">
+          <button type="button" class="btn danger" id="fs-use-folder">Load from folder</button>
+          <button type="button" class="ghost" id="fs-use-here">Cancel</button>
+        </div>
+      </div>
+    </section>
     <section class="sheet-sec">
       <h3>Saved on this device</h3>
       <p class="note2" id="store-state">Everything you add is saved on this device and works without internet. Nothing is uploaded.</p>
@@ -648,10 +667,10 @@ function openDB(){
   });
 }
 const idbAll = store => reqP(idb.transaction(store).objectStore(store).getAll());
-async function idbPut(store,val){ const t=idb.transaction(store,"readwrite"); t.objectStore(store).put(val); return done(t); }
-async function idbDel(store,id){ const t=idb.transaction(store,"readwrite"); t.objectStore(store).delete(id); return done(t); }
+async function idbPut(store,val){ const t=idb.transaction(store,"readwrite"); t.objectStore(store).put(val); await done(t); fsQueue(); }
+async function idbDel(store,id){ const t=idb.transaction(store,"readwrite"); t.objectStore(store).delete(id); await done(t); fsQueue(); }
 const bc = "BroadcastChannel" in window ? new BroadcastChannel("coursebook") : null;
-const bcPost = () => { try{ bc && bc.postMessage("changed"); }catch{} };
+const bcPost = () => { try{ bc && bc.postMessage("changed"); }catch{} fsQueue(); };
 const newId = () => rid() + Date.now().toString(36);
 function onErr(e){
   if(e && e.name==="QuotaExceededError") toast("This device is out of storage space. Delete some files or old items, then try again.");
@@ -1602,7 +1621,8 @@ const XL=(()=>{
   }
   return {book};
 })();
-function buildWorkbook(){
+function buildWorkbook(opts){
+  const withJ=pmUnlocked && !(opts&&opts.noJournal);
   const sName=id=>{ const s=subj(id); return s?s.name||"":""; };
   const aTitle=id=>{ const a=id&&state.activities.find(x=>x.id===id); return a?a.title||"":""; };
   const ymd=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
@@ -1620,7 +1640,7 @@ function buildWorkbook(){
     const sa=acts.filter(a=>a.subjectId===s.id), c={notcomplete:0,ongoing:0,submitted:0}; sa.forEach(a=>c[st(a)]++);
     summary.push([s.name||"",s.teacher||"",sa.length,c.submitted,c.ongoing,c.notcomplete,{pct:sa.length?c.submitted/sa.length:0}]);
   }
-  summary.push([],[pmUnlocked?"Parents Journal is included because Parents Monitoring was unlocked.":"Parents Journal is not included. Unlock Parents Monitoring first to include it."]);
+  summary.push([],[withJ?"Parents Journal is included because Parents Monitoring was unlocked.":"Parents Journal is not included. Unlock Parents Monitoring first to include it."]);
   const sheets=[{name:"Summary",header:false,widths:[30,22,12,12,12,12,12],rows:summary}];
   sheets.push({name:"Subjects",widths:[26,24,14,12,10],rows:[["Subject","Teacher","Teacher photo","Activities","Links"],
     ...state.subjects.map(s=>[s.name||"",s.teacher||"",s.teacherPhoto?"Yes":"No",acts.filter(a=>a.subjectId===s.id).length,state.links.filter(l=>l.subjectId===s.id).length])]});
@@ -1633,7 +1653,7 @@ function buildWorkbook(){
     ...[...state.comments].sort((a,b)=>(a.createdAt||0)-(b.createdAt||0)).map(c=>[msD(c.createdAt),sName(c.subjectId),aTitle(c.activityId),c.text||"",attList(c.attachments)])]});
   sheets.push({name:"Teacher Remarks",widths:[14,20,22,30,16,8,64,40],rows:[["Date received","Subject","Teacher","Activity","Type","Done","Remark","Attachments"],
     ...[...state.remarks].sort((a,b)=>String(a.date||"").localeCompare(String(b.date||""))).map(r=>{ const s=subj(r.subjectId); return [D(r.date),s?s.name||"":"",s&&s.teacher||"",aTitle(r.activityId),(KIND[r.kind]||KIND.note).t,r.kind==="action"?(r.resolved?"Yes":"No"):"",r.text||"",attList(r.attachments)]; })]});
-  if(pmUnlocked) sheets.push({name:"Parents Journal",widths:[12,22,30,72],rows:[["Date","Subject","Related activity","Entry"],
+  if(withJ) sheets.push({name:"Parents Journal",widths:[12,22,30,72],rows:[["Date","Subject","Related activity","Entry"],
     ...[...state.journal].sort((a,b)=>String(a.date||"").localeCompare(String(b.date||""))).map(j=>[D(j.date),j.subjectId&&subj(j.subjectId)?sName(j.subjectId):(j.subjectText||""),aTitle(j.activityId),j.text||""])]});
   return XL.book(sheets);
 }
@@ -1691,6 +1711,133 @@ $("#pm-mail-go").addEventListener("click",async()=>{
   } else toast("The email couldn't be sent. Check the internet connection and try again.");
   btn.disabled=false; btn.textContent="Email me a new code";
 });
+/* ---------- save to a folder on this computer (Chrome / Edge) ---------- */
+const FS_OK = "showDirectoryPicker" in window && !NATIVE;
+const FS_NAME="School Task Monitor", FS_DATA="school-task-monitor-data.json";
+var fsDir=null, fsState="off", fsTimer=0, fsBusy=false, fsAgain=false, fsLast=0, fsImporting=false, fsPending=null;
+function fsHandleDB(){ return new Promise((res,rej)=>{ const r=indexedDB.open("coursebook-folder",1); r.onupgradeneeded=()=>r.result.createObjectStore("h"); r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error); }); }
+async function fsStoreHandle(h){ try{ const d=await fsHandleDB(), t=d.transaction("h","readwrite"); h ? t.objectStore("h").put(h,"dir") : t.objectStore("h").delete("dir"); await done(t); d.close(); }catch{} }
+async function fsLoadHandle(){ try{ const d=await fsHandleDB(); const h=await reqP(d.transaction("h").objectStore("h").get("dir")); d.close(); return h||null; }catch{ return null; } }
+const fsExt=t=>({"image/jpeg":".jpg","image/png":".png","image/gif":".gif","image/webp":".webp","video/mp4":".mp4","video/webm":".webm","video/quicktime":".mov","application/pdf":".pdf"})[t]||".bin";
+const fsTime=ms=>new Date(ms).toLocaleTimeString([],{hour:"numeric",minute:"2-digit"});
+function setFsState(st){
+  fsState=st; if(!FS_OK) return;
+  $("#fs-bar").hidden = st!=="need";
+  $("#fs-load").hidden = st!=="on"; $("#fs-off").hidden = st==="off";
+  $("#fs-pick").textContent = st==="off" ? "Choose Documents folder" : "Choose a different folder";
+  $("#fs-state").textContent =
+    st==="on" ? `Everything is saved automatically to the ${FS_NAME} folder${fsLast?` (last saved ${fsTime(fsLast)})`:""}. It holds ${FS_DATA}, ${FS_NAME}.xlsx and an attachments folder with your photos and videos.`
+    : st==="need" ? `Saving to the ${FS_NAME} folder is paused until you click Reconnect folder. Your changes are still saved in this browser.`
+    : `Keep a copy of everything in a ${FS_NAME} folder on this computer. Click the button, choose your Documents folder, and School Task Monitor creates the ${FS_NAME} folder there and keeps it up to date after every change.`;
+}
+function fsQueue(){ if(fsState!=="on" || fsImporting || !idb) return; clearTimeout(fsTimer); fsTimer=setTimeout(fsFlush,1200); }
+async function fsWriteFile(dir,name,data){ const fh=await dir.getFileHandle(name,{create:true}); const w=await fh.createWritable(); await w.write(data); await w.close(); }
+async function fsWriteAll(){
+  const data={}; for(const c of COLS) data[c]=await idbAll(c); data.settings=await idbAll("settings");
+  const att=await fsDir.getDirectoryHandle("attachments",{create:true});
+  const have=new Set(); for await (const [n] of att.entries()) have.add(n);
+  const files=[], keep=new Set();
+  for(const f of await idbAll("files")){
+    if(!f || !f.blob) continue;
+    const n=f.id+fsExt(f.type); keep.add(n);
+    files.push({id:f.id,type:f.type,createdAt:f.createdAt,file:"attachments/"+n});
+    if(!have.has(n)) await fsWriteFile(att,n,f.blob);
+  }
+  for(const n of have) if(!keep.has(n)) try{ await att.removeEntry(n); }catch{}
+  await fsWriteFile(fsDir,FS_DATA,JSON.stringify({app:"coursebook",version:1,format:"folder",exportedAt:new Date().toISOString(),data,files},null,1));
+  try{ await fsWriteFile(fsDir,FS_NAME+".xlsx",buildWorkbook({noJournal:true})); }catch{}
+  fsLast=Date.now();
+}
+async function fsFlush(){
+  if(fsState!=="on") return;
+  if(fsBusy){ fsAgain=true; return; }
+  fsBusy=true;
+  try{ await fsWriteAll(); setFsState("on"); }
+  catch(e){
+    const n=e&&e.name;
+    if(n==="NotAllowedError"||n==="SecurityError"){ setFsState("need"); }
+    else if(n==="NotFoundError"){ setFsState("need"); toast(`The ${FS_NAME} folder was moved or deleted. Choose your Documents folder again.`); }
+    else toast(`Couldn't save to the ${FS_NAME} folder just now. Your changes are still saved in this browser.`);
+  }
+  fsBusy=false;
+  if(fsAgain){ fsAgain=false; fsQueue(); }
+}
+async function fsReadData(){
+  try{ const fh=await fsDir.getFileHandle(FS_DATA); const j=JSON.parse(await (await fh.getFile()).text()); return j && j.app==="coursebook" && j.data && typeof j.data==="object" ? j : null; }catch{ return null; }
+}
+const fsCount=j=>COLS.reduce((k,c)=>k+(Array.isArray(j.data[c])?j.data[c].length:0),0);
+const deviceEmpty=()=>COLS.every(c=>!state[c].length);
+async function fsImport(j){
+  fsImporting=true;
+  try{
+    const t=idb.transaction(STORES,"readwrite");
+    STORES.forEach(s=>t.objectStore(s).clear());
+    COLS.forEach(c=>(Array.isArray(j.data[c])?j.data[c]:[]).forEach(r=>{ if(r && typeof r.id==="string") t.objectStore(c).put(r); }));
+    (Array.isArray(j.data.settings)?j.data.settings:[]).forEach(r=>{ if(r && typeof r.id==="string") t.objectStore("settings").put(r); });
+    await done(t);
+    let att=null; try{ att=await fsDir.getDirectoryHandle("attachments"); }catch{}
+    let missing=0;
+    for(const f of (Array.isArray(j.files)?j.files:[])){
+      if(!f || typeof f.id!=="string" || typeof f.file!=="string") continue;
+      try{ const blob=await (await att.getFileHandle(f.file.split("/").pop())).getFile();
+        const t2=idb.transaction("files","readwrite"); t2.objectStore("files").put({id:f.id,blob,type:f.type||blob.type,size:blob.size,createdAt:f.createdAt||Date.now()}); await done(t2);
+      }catch{ missing++; }
+    }
+    await reloadAll(); refreshStorage();
+    return missing;
+  } finally { fsImporting=false; }
+}
+function fsAsk(msg,keepLabel){ $("#fs-msg").textContent=msg; $("#fs-use-here").textContent=keepLabel; $("#fs-confirm").hidden=false; }
+async function fsAfterAccess(fromPick){
+  const j=await fsReadData();
+  if(j && fsCount(j)){
+    const when=j.exportedAt?new Date(j.exportedAt).toLocaleString():"an earlier date";
+    if(deviceEmpty()){ const m=await fsImport(j); toast(`Loaded your records from the ${FS_NAME} folder`+(m?` (${m} file${m===1?"":"s"} missing)`:"")); fsQueue(); return; }
+    if(fromPick){ fsPending=j; fsAsk(`The ${FS_NAME} folder already has records saved ${when}. Load them into this browser (this replaces what's here), or save this browser's records to the folder instead?`,"Save this browser's records there"); openFsSheet(); return; }
+  }
+  fsQueue();
+}
+function openFsSheet(){ if($("#install").hidden){ refreshInstall(); refreshStorage(); $("#bk-confirm").hidden=true; $("#install").hidden=false; } }
+async function fsUse(dir){ fsDir=dir; await fsStoreHandle(dir); setFsState("on"); }
+if(FS_OK){
+  $("#fs-sec").hidden=false; setFsState("off");
+  $("#fs-pick").addEventListener("click",async()=>{
+    if(!idb){ toast("This browser is blocking storage, so nothing can be saved."); return; }
+    let root; try{ root=await window.showDirectoryPicker({id:"school-task-monitor",mode:"readwrite",startIn:"documents"}); }catch{ return; }
+    let dir;
+    try{ dir = root.name===FS_NAME ? root : await root.getDirectoryHandle(FS_NAME,{create:true}); }
+    catch{ toast(`Couldn't create the ${FS_NAME} folder there. Choose your Documents folder.`); return; }
+    $("#fs-confirm").hidden=true; fsPending=null;
+    await fsUse(dir); toast(`Saving to Documents › ${FS_NAME}`);
+    await fsAfterAccess(true);
+  });
+  $("#fs-reconnect").addEventListener("click",async()=>{
+    if(!fsDir) return;
+    let p="denied"; try{ p=await fsDir.requestPermission({mode:"readwrite"}); }catch{}
+    if(p==="granted"){ setFsState("on"); toast(`Saving to the ${FS_NAME} folder again`); await fsAfterAccess(false); }
+    else toast("School Task Monitor can't save to the folder without your OK. Your changes are still saved in this browser.");
+  });
+  $("#fs-load").addEventListener("click",async()=>{
+    const j=await fsReadData();
+    if(!j){ toast(`There are no saved records in the ${FS_NAME} folder yet.`); return; }
+    fsPending=j;
+    fsAsk(`Load the records saved in the ${FS_NAME} folder on ${j.exportedAt?new Date(j.exportedAt).toLocaleString():"an earlier date"}? This replaces everything in this browser.`,"Cancel");
+  });
+  $("#fs-use-folder").addEventListener("click",async()=>{
+    const j=fsPending; if(!j) return; const b=$("#fs-use-folder"); b.disabled=true;
+    try{ const m=await fsImport(j); toast("Loaded your records from the folder"+(m?` (${m} file${m===1?"":"s"} missing)`:"")); }catch{ toast("The records in the folder couldn't be loaded."); }
+    b.disabled=false; fsPending=null; $("#fs-confirm").hidden=true; fsQueue();
+  });
+  $("#fs-use-here").addEventListener("click",()=>{ fsPending=null; $("#fs-confirm").hidden=true; fsQueue(); });
+  $("#fs-off").addEventListener("click",async()=>{ clearTimeout(fsTimer); fsDir=null; await fsStoreHandle(null); $("#fs-confirm").hidden=true; setFsState("off"); toast(`Stopped saving to the folder. The files already in it are kept.`); });
+}
+async function fsInit(){
+  if(!FS_OK) return;
+  const h=await fsLoadHandle(); if(!h) return;
+  fsDir=h;
+  let p="prompt"; try{ p=await h.queryPermission({mode:"readwrite"}); }catch{}
+  if(p==="granted"){ setFsState("on"); await fsAfterAccess(false); } else setFsState("need");
+}
 /* ---------- boot ---------- */
 function updateNet(){ if(mode!=="device") return; setStatus(navigator.onLine ? "Saved on this device" : "Offline · saved on this device"); }
 addEventListener("online",updateNet); addEventListener("offline",updateNet);
@@ -1705,6 +1852,7 @@ showTab(); render();
   }
   mode="device";
   await reloadAll(); updateNet();
+  fsInit().catch(()=>{});
   try{ if(navigator.storage && navigator.storage.persist && !(await navigator.storage.persisted())) await navigator.storage.persist(); }catch{}
 })();
 if("serviceWorker" in navigator && location.protocol!=="file:" && !NATIVE){
