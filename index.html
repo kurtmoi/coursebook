@@ -234,6 +234,12 @@ form.panel.editing{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-
 .pending:empty{display:none}
 .pend{position:relative;aspect-ratio:1;border-radius:8px;overflow:hidden;background:var(--bg);border:1px solid var(--line);max-width:100%}
 .pend img,.pend video{width:100%;height:100%;object-fit:cover;display:block}
+.pend .docico,.docbtn .docico{display:grid;place-items:center;font:700 .8rem var(--f-mono);color:#fff;border-radius:6px}
+.pend .docico{width:100%;height:100%;border-radius:0}
+.docico.pdf{background:#c0392b}.docico.excel{background:#1d7f53}.docico.word{background:#2f5bd3}
+.docbtn{display:flex;align-items:center;gap:8px;width:100%;aspect-ratio:4/3;flex-direction:column;justify-content:center;padding:8px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);cursor:pointer;font:inherit;min-width:0}
+.docbtn .docico{width:46px;height:46px}
+.docbtn .docname{font-size:.78rem;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .pend .pk{position:absolute;left:4px;bottom:4px;font:500 .62rem var(--f-mono);background:var(--surface);color:var(--ink);padding:1px 5px;border-radius:4px}
 .pend button{position:absolute;top:3px;right:3px;padding:0 7px;background:var(--surface);line-height:1.5}
 .atts{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px;margin-top:4px}
@@ -603,7 +609,8 @@ try { const v=localStorage.getItem("cb-sfilter"); if(v && (v==="all" || v in ST)
 const PIE_ORDER = ["submitted","ongoing","notcomplete"];
 const PIE_COL = {submitted:"var(--ok)", ongoing:"var(--warn)", notcomplete:"var(--bad)"};
 try { const v=localStorage.getItem("cb-afilter"); if(v && (v==="all" || v in ST)) afilter=v; } catch {}
-const KINDS = {photo:"Photo", screenshot:"Screenshot", video:"Video"};
+const KINDS = {photo:"Photo", screenshot:"Screenshot", video:"Video", pdf:"PDF", excel:"Excel", word:"Word"};
+const DOC_KINDS = {pdf:1, excel:1, word:1};
 const lastHTML = {};
 let assets = null, ctab = "comments", cact = "";
 try { const v=localStorage.getItem("cb-ctab"); if(v==="comments" || v==="proof") ctab=v; else if(v in KINDS) ctab="proof"; } catch {}
@@ -851,9 +858,44 @@ function renderLinks(){
   setList("list-links", rows || (isLoading("links") ? empty("Loading links…","") : empty("No links yet","Save class pages, readings and videos with the form.")));
 }
 const blobUrl = id => fileURLs.get(id) || "";
+const DOC_ICON={pdf:"PDF",excel:"XLS",word:"DOC"};
+const DOC_TYPES={
+  pdf:{types:["application/pdf"],ext:["pdf"],mime:"application/pdf"},
+  excel:{types:["application/vnd.openxmlformats-officedocument.spreadsheetml.sheet","application/vnd.ms-excel"],ext:["xlsx","xls"],mime:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"},
+  word:{types:["application/vnd.openxmlformats-officedocument.wordprocessingml.document","application/msword"],ext:["docx","doc"],mime:"application/vnd.openxmlformats-officedocument.wordprocessingml.document"}
+};
+function docKind(f){
+  const ext=String(f.name||"").toLowerCase().split(".").pop();
+  for(const k in DOC_TYPES){ const d=DOC_TYPES[k]; if(d.types.includes(f.type) || d.ext.includes(ext)) return k; }
+  return "";
+}
+function docMime(f,k){
+  if(f.type && f.type!=="application/octet-stream") return f.type;
+  const ext=String(f.name||"").toLowerCase().split(".").pop();
+  return ({xls:"application/vnd.ms-excel",doc:"application/msword"})[ext] || DOC_TYPES[k].mime;
+}
+const DOC_ACCEPT=Object.values(DOC_TYPES).flatMap(d=>d.types.concat(d.ext.map(e=>"."+e)));
+async function openDoc(id,name,kind){
+  const u=blobUrl(id); if(!u){ toast("That file isn't available on this device."); return; }
+  const blob=await (await fetch(u)).blob();
+  const fname=name || ("attachment."+(DOC_TYPES[kind]?DOC_TYPES[kind].ext[0]:"bin"));
+  if(NATIVE){
+    try{
+      const C=window.Capacitor, FS=C.registerPlugin("Filesystem"), SH=C.registerPlugin("Share");
+      const b64=(await toDataURL(blob)).split(",")[1];
+      const w=await FS.writeFile({path:fname.replace(/[\\/:*?"<>|]/g,"_"),data:b64,directory:"CACHE"});
+      await SH.share({title:fname,url:w.uri,dialogTitle:"Open with"});
+    }catch(e){ if(!/cancel/i.test(String(e&&e.message||e))) toast("No app on this phone could open that file. Install a PDF, Excel or Word app."); }
+    return;
+  }
+  if(kind==="pdf" && !isIOS){ const w=window.open(u,"_blank","noopener"); if(w) return; }
+  const r=await webSave(fname,blob);
+  if(r==="downloaded") toast(`${fname} downloaded`);
+}
 function media(a){
   if(!blobUrl(a.id)) return `<div class="missing">File unavailable</div>`;
   const u=esc(blobUrl(a.id)), alt=esc(a.name||KINDS[a.kind]||"Attachment");
+  if(DOC_KINDS[a.kind]) return `<button type="button" class="docbtn" data-doc="${esc(a.id)}" data-name="${esc(a.name||"")}" data-kind="${esc(a.kind)}" title="Open ${alt}"><span class="docico ${esc(a.kind)}">${DOC_ICON[a.kind]}</span><span class="docname">${alt}</span></button>`;
   return a.kind==="video" ? `<video controls preload="metadata" playsinline src="${u}" aria-label="${alt}"></video>` : `<img loading="lazy" src="${u}" alt="${alt}" data-zoom>`;
 }
 async function renderComments(){
@@ -1129,14 +1171,15 @@ function uploadErr(e){
   if(c==="not_granted") return "Only people who can edit this School Task Monitor can attach files.";
   return "An attachment didn't upload. Check your connection and try again.";
 }
-function makeAttacher(prefix, noun, pasteTarget){
+function makeAttacher(prefix, noun, pasteTarget, docs){
   const area=$("#"+prefix+"-area"), pendEl=$("#"+prefix+"-pending"), hint=$("#"+prefix+"-hint"), fi=$("#"+prefix+"-file");
   const pending=[]; const keepEl=$("#"+prefix+"-keep"); let keep=[], removed=[];
-  const drawKeep=()=>{ keepEl.innerHTML = keep.map((a,i)=>{ const u=blobUrl(a.id); return `<div class="pend">${!u?`<div class="missing">?</div>`:a.kind==="video"?`<video src="${esc(u)}" muted playsinline></video>`:`<img src="${esc(u)}" alt="">`}<span class="pk">${KINDS[a.kind]||"File"}</span><button type="button" class="ghost danger" data-unkeep="${i}" aria-label="Remove ${KINDS[a.kind]||"file"}">×</button></div>`; }).join(""); };
-  const draw=()=>{ pendEl.innerHTML = pending.map((p,i)=>`<div class="pend">${p.kind==="video"?`<video src="${p.url}" muted playsinline></video>`:`<img src="${p.url}" alt="">`}<span class="pk">${KINDS[p.kind]}</span><button type="button" class="ghost danger" data-unpend="${i}" aria-label="Remove ${KINDS[p.kind]}">×</button></div>`).join(""); };
+  const drawKeep=()=>{ keepEl.innerHTML = keep.map((a,i)=>{ const u=blobUrl(a.id); return `<div class="pend">${!u?`<div class="missing">?</div>`:DOC_KINDS[a.kind]?`<div class="docico ${a.kind}" title="${esc(a.name||"")}">${DOC_ICON[a.kind]}</div>`:a.kind==="video"?`<video src="${esc(u)}" muted playsinline></video>`:`<img src="${esc(u)}" alt="">`}<span class="pk">${KINDS[a.kind]||"File"}</span><button type="button" class="ghost danger" data-unkeep="${i}" aria-label="Remove ${KINDS[a.kind]||"file"}">×</button></div>`; }).join(""); };
+  const draw=()=>{ pendEl.innerHTML = pending.map((p,i)=>`<div class="pend">${DOC_KINDS[p.kind]?`<div class="docico ${p.kind}" title="${esc(p.file.name||"")}">${DOC_ICON[p.kind]}</div>`:p.kind==="video"?`<video src="${p.url}" muted playsinline></video>`:`<img src="${p.url}" alt="">`}<span class="pk">${KINDS[p.kind]}</span><button type="button" class="ghost danger" data-unpend="${i}" aria-label="Remove ${KINDS[p.kind]}">×</button></div>`).join(""); };
   const queue=(f,kind)=>{
     const isVid=kind==="video";
-    if(!(isVid?VID_TYPES:IMG_TYPES).includes(f.type)){ toast(isVid ? `${f.name||"That video"}: use an MP4 or WebM video.` : `${f.name||"That image"}: use JPG, PNG, GIF or WebP. Convert iPhone HEIC photos to JPG first.`); return; }
+    if(DOC_KINDS[kind]){ if(!docs) return; f=new File([f],f.name||("file."+DOC_TYPES[kind].ext[0]),{type:docMime(f,kind)}); }
+    else if(!(isVid?VID_TYPES:IMG_TYPES).includes(f.type)){ toast(isVid ? `${f.name||"That video"}: use an MP4 or WebM video.` : `${f.name||"That image"}: use JPG, PNG, GIF or WebP. Convert iPhone HEIC photos to JPG first.`); return; }
     if(f.size>20*1024*1024){ toast(`${f.name||"That file"} is over 20 MB. Choose a smaller file.`); return; }
     if(pending.length+keep.length>=10){ toast(`You can attach up to 10 files per ${noun}.`); return; }
     pending.push({file:f,kind,url:URL.createObjectURL(f)}); draw();
@@ -1144,11 +1187,11 @@ function makeAttacher(prefix, noun, pasteTarget){
   area.addEventListener("click",e=>{
     const k=e.target.closest("[data-unkeep]");
     if(k){ const i=Number(k.dataset.unkeep); if(keep[i]){ removed.push(keep[i]); keep.splice(i,1); drawKeep(); } return; }
-    if(e.target.closest("[data-pick]")){ fi.accept=IMG_TYPES.concat(VID_TYPES).join(","); fi.value=""; fi.click(); return; }
+    if(e.target.closest("[data-pick]")){ fi.accept=IMG_TYPES.concat(VID_TYPES, docs?DOC_ACCEPT:[]).join(","); fi.value=""; fi.click(); return; }
     const r=e.target.closest("[data-unpend]");
     if(r){ const i=Number(r.dataset.unpend); if(pending[i]){ URL.revokeObjectURL(pending[i].url); pending.splice(i,1); draw(); } }
   });
-  fi.addEventListener("change",e=>{ [...e.target.files].forEach(f=>queue(f, f.type.startsWith("video/") ? "video" : "photo")); e.target.value=""; });
+  fi.addEventListener("change",e=>{ [...e.target.files].forEach(f=>{ const dk=docs&&docKind(f); if(!dk && docs && !f.type.startsWith("image/") && !f.type.startsWith("video/")){ toast(`${f.name||"That file"}: use a photo, video, PDF, Excel or Word file.`); return; } queue(f, dk || (f.type.startsWith("video/") ? "video" : "photo")); }); e.target.value=""; });
   pasteTarget.addEventListener("paste",e=>{
     if(!assets) return;
     const imgs=[...((e.clipboardData&&e.clipboardData.files)||[])].filter(f=>f.type.startsWith("image/"));
@@ -1160,7 +1203,7 @@ function makeAttacher(prefix, noun, pasteTarget){
     setKeep(list){ keep=(list||[]).filter(a=>a&&a.id); removed=[]; drawKeep(); },
     ui(){
       area.querySelectorAll("[data-pick]").forEach(b=>b.disabled=!assets);
-      hint.textContent = assets ? `Images: JPG, PNG, GIF or WebP. Videos: MP4 or WebM. Up to 20 MB each, 10 per ${noun}.`
+      hint.textContent = assets ? (docs ? `Photos, screenshots, videos (MP4, WebM), PDF, Excel or Word files. Up to 20 MB each, 10 per ${noun}.` : `Images: JPG, PNG, GIF or WebP. Videos: MP4 or WebM. Up to 20 MB each, 10 per ${noun}.`)
         : mode==="local" ? "Attachments work on the published School Task Monitor." : "Only people who can edit this School Task Monitor can attach files.";
     },
     clear(){ pending.forEach(p=>URL.revokeObjectURL(p.url)); pending.length=0; draw(); keep=[]; removed=[]; drawKeep(); },
@@ -1179,7 +1222,7 @@ function makeAttacher(prefix, noun, pasteTarget){
   };
 }
 const cAtt=makeAttacher("att","comment",$("#c-text")), rAtt=makeAttacher("ratt","remark",$("#r-text"));
-var aAtt=makeAttacher("aatt","activity",$("#a-notes"));
+var aAtt=makeAttacher("aatt","activity",$("#a-notes"),true);
 function setAttUI(){ cAtt.ui(); rAtt.ui(); aAtt.ui(); }
 const noPerm="Only people who can edit this School Task Monitor can attach files.";
 let editC=null, editR=null;
@@ -1257,6 +1300,8 @@ document.addEventListener("error",e=>{
 },true);
 document.addEventListener("pause",e=>{ if(e.target.tagName==="VIDEO" && document.querySelector(".list[data-stale='1']")) setTimeout(render,0); },true);
 document.addEventListener("click",e=>{
+  const db=e.target.closest("[data-doc]");
+  if(db){ openDoc(db.dataset.doc,db.dataset.name,db.dataset.kind); return; }
   const im=e.target.closest("img[data-zoom]");
   if(im){ const lb=$("#lb"); lb.querySelector("img").src=im.src; lb.querySelector("img").alt=im.alt; lb.hidden=false; return; }
   if(e.target.closest("#lb")) $("#lb").hidden=true;
@@ -1738,7 +1783,7 @@ var fsDir=null, fsState="off", fsTimer=0, fsBusy=false, fsAgain=false, fsLast=0,
 function fsHandleDB(){ return new Promise((res,rej)=>{ const r=indexedDB.open("coursebook-folder",1); r.onupgradeneeded=()=>r.result.createObjectStore("h"); r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error); }); }
 async function fsStoreHandle(h){ try{ const d=await fsHandleDB(), t=d.transaction("h","readwrite"); h ? t.objectStore("h").put(h,"dir") : t.objectStore("h").delete("dir"); await done(t); d.close(); }catch{} }
 async function fsLoadHandle(){ try{ const d=await fsHandleDB(); const h=await reqP(d.transaction("h").objectStore("h").get("dir")); d.close(); return h||null; }catch{ return null; } }
-const fsExt=t=>({"image/jpeg":".jpg","image/png":".png","image/gif":".gif","image/webp":".webp","video/mp4":".mp4","video/webm":".webm","video/quicktime":".mov","application/pdf":".pdf"})[t]||".bin";
+const fsExt=t=>({"image/jpeg":".jpg","image/png":".png","image/gif":".gif","image/webp":".webp","video/mp4":".mp4","video/webm":".webm","video/quicktime":".mov","application/pdf":".pdf","application/vnd.openxmlformats-officedocument.spreadsheetml.sheet":".xlsx","application/vnd.ms-excel":".xls","application/vnd.openxmlformats-officedocument.wordprocessingml.document":".docx","application/msword":".doc"})[t]||".bin";
 const fsTime=ms=>new Date(ms).toLocaleTimeString([],{hour:"numeric",minute:"2-digit"});
 function setFsState(st){
   fsState=st; if(!FS_OK) return;
