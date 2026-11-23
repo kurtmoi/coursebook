@@ -1,0 +1,84 @@
+name: Build iPhone app
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "index.html"
+      - "manifest.webmanifest"
+      - "icons/**"
+      - "mobile/**"
+      - ".github/workflows/ios.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  ios:
+    runs-on: macos-15
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install Capacitor
+        run: npm install --no-audit --no-fund
+
+      - name: Copy the web app into the native shell
+        run: npm run copy-web
+
+      - name: Add the iPhone project
+        run: npx cap add ios
+
+      - name: Generate the app icon and splash screen
+        continue-on-error: true
+        run: npm run icons-ios
+
+      - name: Sync web app and plugins
+        run: npx cap sync ios
+
+      - name: Set iPhone permissions and Files app access
+        run: |
+          P=ios/App/App/Info.plist
+          /usr/libexec/PlistBuddy -c "Add :NSCameraUsageDescription string 'Take photos and videos as proof for comments and teacher remarks.'" $P
+          /usr/libexec/PlistBuddy -c "Add :NSMicrophoneUsageDescription string 'Record sound with proof videos.'" $P
+          /usr/libexec/PlistBuddy -c "Add :NSPhotoLibraryUsageDescription string 'Attach photos and videos as proof.'" $P
+          /usr/libexec/PlistBuddy -c "Add :NSPhotoLibraryAddUsageDescription string 'Save photos from the app.'" $P
+          /usr/libexec/PlistBuddy -c "Add :UIFileSharingEnabled bool true" $P
+          /usr/libexec/PlistBuddy -c "Add :LSSupportsOpeningDocumentsInPlace bool true" $P
+
+      - name: Build the iPhone app (unsigned)
+        working-directory: mobile/ios/App
+        run: |
+          if [ -d App.xcworkspace ]; then SRC="-workspace App.xcworkspace"; else SRC="-project App.xcodeproj"; fi
+          xcodebuild $SRC -scheme App -configuration Release -sdk iphoneos \
+            -destination generic/platform=iOS -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" build
+
+      - name: Package the .ipa
+        run: |
+          mkdir -p Payload
+          cp -R ios/App/build/Build/Products/Release-iphoneos/App.app Payload/
+          zip -qr ../School-Task-Monitor.ipa Payload
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: School-Task-Monitor-iphone
+          path: School-Task-Monitor.ipa
+
+      - name: Publish a release with the iPhone app
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ios-build-${{ github.run_number }}
+          name: School Task Monitor for iPhone (build ${{ github.run_number }})
+          body: |
+            **School-Task-Monitor.ipa** is the iPhone app. It is unsigned, so install it with Sideloadly or AltStore using your Apple ID.
+            Easiest option with no computer: open https://kurtmoi.github.io/coursebook/ in Safari, tap Share, then Add to Home Screen.
+            Everything you add is saved on the phone and works offline.
+          files: School-Task-Monitor.ipa

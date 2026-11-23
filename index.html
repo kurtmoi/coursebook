@@ -1228,6 +1228,19 @@ const ua=navigator.userAgent||"";
 const NATIVE = !!(window.Capacitor && typeof window.Capacitor.isNativePlatform==="function" && window.Capacitor.isNativePlatform());
 if(NATIVE){ $("#install-open").textContent="Backup"; $("#install-title").textContent="Backup"; const s0=document.querySelector("#install .sheet-sec"); if(s0) s0.hidden=true; }
 const isIOS = /iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints>1);
+const IOS_APP = NATIVE && window.Capacitor.getPlatform && window.Capacitor.getPlatform()==="ios";
+const SAVED_WHERE = IOS_APP ? "the Files app (On My iPhone › School Task Monitor)" : "Documents/School Task Monitor";
+async function webSave(name,blob){
+  if(isIOS && navigator.canShare){
+    try{
+      const f=new File([blob],name,{type:blob.type||"application/octet-stream"});
+      if(navigator.canShare({files:[f]})){ await navigator.share({files:[f],title:name}); return "shared"; }
+    }catch(e){ if(e && e.name==="AbortError") return "cancelled"; }
+  }
+  const url=URL.createObjectURL(blob), a=document.createElement("a"); a.href=url; a.download=name;
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url),15000);
+  return "downloaded";
+}
 const isStandalone = () => matchMedia("(display-mode: standalone)").matches || navigator.standalone===true;
 let deferredPrompt=null;
 addEventListener("beforeinstallprompt",e=>{ e.preventDefault(); deferredPrompt=e; refreshInstall(); });
@@ -1269,12 +1282,10 @@ $("#bk-save").addEventListener("click",async()=>{
     const name=`school-task-monitor-backup-${todayStr()}.json`, nf=`${files.length} file${files.length===1?"":"s"}`;
     if(NATIVE){
       const inDocs=await saveNative(name,out);
-      toast(inDocs ? `Backup saved to Documents/School Task Monitor with ${nf}` : `Backup ready with ${nf}. Choose where to save it.`);
+      toast(inDocs ? `Backup saved to ${SAVED_WHERE} with ${nf}` : `Backup ready with ${nf}. Choose where to save it.`);
     } else {
-      const url=URL.createObjectURL(new Blob([out],{type:"application/json"}));
-      const a=document.createElement("a"); a.href=url; a.download=name;
-      document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url),15000);
-      toast(`Backup downloaded with ${nf}`);
+      const r=await webSave(name,new Blob([out],{type:"application/json"}));
+      if(r!=="cancelled") toast(r==="shared" ? `Backup ready with ${nf}. Choose "Save to Files" to keep it.` : `Backup downloaded with ${nf}`);
     }
   }catch{ toast("The backup couldn't be made. Free up some space on this device and try again."); }
   btn.disabled=false; btn.textContent="Download backup";
@@ -1529,11 +1540,10 @@ async function saveExcel(name,blob){
     let inDocs=false;
     try{ await FS.writeFile({path:"School Task Monitor/"+name,data:b64,directory:"DOCUMENTS",recursive:true}); inDocs=true; }catch{}
     try{ const w=await FS.writeFile({path:name,data:b64,directory:"CACHE"}); await SH.share({title:"School Task Monitor Excel",url:w.uri,dialogTitle:"Save or send the Excel file"}); }catch{}
-    return inDocs?"Excel file saved to Documents/School Task Monitor":"Excel file ready. Choose where to save it.";
+    return inDocs?"Excel file saved to "+SAVED_WHERE:"Excel file ready. Choose where to save it.";
   }
-  const url=URL.createObjectURL(blob), a=document.createElement("a"); a.href=url; a.download=name;
-  document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url),15000);
-  return "Excel file downloaded";
+  const r=await webSave(name,blob);
+  return r==="shared" ? 'Excel file ready. Choose "Save to Files" to keep it.' : r==="cancelled" ? "Excel file not saved" : "Excel file downloaded";
 }
 /* Excel export: a real .xlsx built in the app, works offline */
 const XL=(()=>{

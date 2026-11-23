@@ -46,7 +46,23 @@ To move your data in, use **Backup → Restore from backup** in the app. **Backu
 
 A new APK is built automatically by GitHub Actions (`.github/workflows/android.yml`) every time `index.html`, the icons or the `mobile/` folder change. The native project settings live in `mobile/`.
 
-**iPhone:** an App Store or installable iPhone app needs an Apple Developer account. Until then, install the web app from Safari (see above). It also works offline.
+## iPhone app
+
+There are two ways to put School Task Monitor on an iPhone. Both work offline and keep everything on the phone.
+
+**Option 1: Home Screen app (easiest, no computer)**
+1. Open the web address above in **Safari**.
+2. Tap **Share**, then **Add to Home Screen**.
+3. Open **Task Monitor** from your home screen. Excel files and backups open the share sheet. Choose **Save to Files**.
+
+**Option 2: native iPhone app (.ipa)**
+1. Open the **Releases** page and download the newest **School-Task-Monitor.ipa** (from an `ios-build-…` release) to a Mac or Windows PC.
+2. Install it with [Sideloadly](https://sideloadly.io/) or [AltStore](https://altstore.io/) using your Apple ID. On the iPhone, go to Settings → General → VPN & Device Management and trust your Apple ID.
+3. With a free Apple ID the app must be refreshed every 7 days. A paid Apple Developer account ($99/year) removes that limit and allows TestFlight or the App Store.
+
+Backups and Excel files from the native app are saved in the **Files** app under **On My iPhone › School Task Monitor**.
+
+A new .ipa is built automatically by GitHub Actions (`.github/workflows/ios.yml`).
 
 ## Your data
 
