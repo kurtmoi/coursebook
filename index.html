@@ -383,6 +383,16 @@ body.readonly .grid{grid-template-columns:minmax(0,1fr)}
           <div id="a-links"></div>
           <button type="button" class="ghost" id="a-addlink">+ Add another link</button>
         </div>
+        <div class="flinks" id="aatt-area">
+          <span class="flabel">Attachments</span>
+          <div class="attbtns">
+            <button type="button" class="ghost" data-pick="proof">+ Add Attachment</button>
+          </div>
+          <div class="pending" id="aatt-keep"></div>
+          <div class="pending" id="aatt-pending"></div>
+          <p class="hint" id="aatt-hint">Checking whether you can attach files…</p>
+        </div>
+        <input type="file" id="aatt-file" multiple hidden>
         <div class="formbtns"><button class="btn" type="submit" id="a-submit">Add activity</button><button type="button" class="ghost" id="a-cancel" hidden>Cancel</button></div>
       </form>
     </div>
@@ -818,6 +828,7 @@ function renderActivities(){
       <div class="meta">${chip(a.subjectId)}<span class="pill ${ST[s].k} ro">${ST[s].t}</span>${when}${a.start||dl?`<span class="mono">${a.start?esc(fmtDay(parseDay(a.start))):"…"} → ${dl?esc(fmtDay(parseDay(dl))):"…"}</span>`:""}</div>
       <div class="title">${esc(a.title)}</div>
       ${a.notes?`<div class="note">${esc(a.notes)}</div>`:""}
+      ${(()=>{ const atts=(Array.isArray(a.attachments)?a.attachments:[]).filter(x=>x&&x.id&&KINDS[x.kind]); return atts.length?`<div class="atts">${atts.map(x=>`<figure class="att">${media(x)}<figcaption>${KINDS[x.kind]}</figcaption></figure>`).join("")}</div>`:""; })()}
       ${ls.length?`<div class="alinks"><span class="lbl">Links</span>${ls.map(l=>linkA(l.url,l.title)).join("")}</div>`:""}
       ${s==="submitted" && sub?`<div class="alinks"><span class="lbl">Submission</span><a href="${esc(sub)}" target="_blank" rel="noopener noreferrer">${esc(host(sub))}</a></div>`:""}
       ${s==="submitted"?`<div class="inline w">
@@ -1039,7 +1050,7 @@ let editingId=null;
 function resetActivityForm(){
   const f=$("#f-activity"); editingId=null;
   f.elements.title.value=""; f.elements.start.value=""; f.elements.end.value=""; f.elements.notes.value=""; f.elements.status.value="notcomplete";
-  resetLinkRows(); f.classList.remove("editing");
+  resetLinkRows(); if(aAtt) aAtt.clear(); f.classList.remove("editing");
   $("#a-head").textContent="Add an activity"; $("#a-submit").textContent="Add activity"; $("#a-cancel").hidden=true;
 }
 function startEdit(id){
@@ -1051,6 +1062,7 @@ function startEdit(id){
   $("#a-links").innerHTML="";
   const ls=state.links.filter(l=>l.activityId===id);
   if(ls.length) ls.forEach(l=>addLinkRow(false,l)); else addLinkRow(false);
+  aAtt.clear(); aAtt.setKeep(Array.isArray(a.attachments)?a.attachments:[]);
   f.classList.add("editing"); $("#a-head").textContent="Edit activity"; $("#a-submit").textContent="Save changes"; $("#a-cancel").hidden=false;
   f.scrollIntoView({behavior:"smooth",block:"start"}); setTimeout(()=>f.elements.title.focus({preventScroll:true}),300);
 }
@@ -1074,25 +1086,32 @@ $("#f-activity").addEventListener("submit",async e=>{ e.preventDefault(); const 
     const u=safeUrl(raw); if(!u){ toast("Enter a web address that starts with http:// or https://"); r.querySelector(".lu").focus(); return; }
     links.push({lid:r.dataset.lid||"",title:lt||host(u),url:u});
   }
+  if(aAtt.pending.length && !assets){ toast(noPerm); return; }
+  const aBtn=$("#a-submit"), aIdle=editingId?"Save changes":"Add activity"; aBtn.disabled=true;
+  const atts=await aAtt.upload(aBtn,aIdle); if(!atts) return;
+  aBtn.disabled=false; aBtn.textContent=aIdle;
   if(editingId){
-    const id=editingId, a=state.activities.find(x=>x.id===id); if(!a){ resetActivityForm(); return; }
-    const patch={title,subjectId,start,end,due:"",notes:val(f,"notes"),status};
+    const id=editingId, a=state.activities.find(x=>x.id===id); if(!a){ aAtt.discard(atts); resetActivityForm(); return; }
+    const removed=aAtt.removed.slice();
+    const patch={title,subjectId,start,end,due:"",notes:val(f,"notes"),status,attachments:aAtt.keep.concat(atts)};
     if(status==="submitted" && st(a)!=="submitted") patch.submittedAt=Date.now();
     if(status!=="submitted") patch.submittedAt=null;
     await upd("activities",id,patch);
     const keep=new Set(links.map(l=>l.lid).filter(Boolean));
     for(const l of state.links.filter(x=>x.activityId===id)) if(!keep.has(l.id)) await del("links",l.id);
     for(const l of links){ const {lid,...rest}=l; if(lid) await upd("links",lid,{...rest,subjectId}); else await add("links",{...rest,subjectId,activityId:id}); }
+    removed.forEach(x=>assets&&assets.delete(x.id).catch(()=>{}));
     resetActivityForm(); toast("Activity updated");
     return;
   }
-  const data={title,subjectId,start,end,notes:val(f,"notes"),status};
+  const data={title,subjectId,start,end,notes:val(f,"notes"),status,attachments:atts};
   if(status==="submitted") data.submittedAt=Date.now();
   const newId=await add("activities",data);
-  if(!newId) return;
+  if(!newId){ aAtt.discard(atts); return; }
   for(const l of links){ const {lid,...rest}=l; await add("links",{...rest,subjectId,activityId:newId}); }
   resetActivityForm();
-  toast(`Activity added as ${ST[status].t}${links.length?` with ${links.length} link${links.length===1?"":"s"}`:""}`);
+  const extra=[links.length?`${links.length} link${links.length===1?"":"s"}`:"",atts.length?`${atts.length} attachment${atts.length===1?"":"s"}`:""].filter(Boolean).join(" and ");
+  toast(`Activity added as ${ST[status].t}${extra?` with ${extra}`:""}`);
 });
 $("#f-link").addEventListener("submit",async e=>{ e.preventDefault(); const f=e.target;
   const u=safeUrl(val(f,"url")); if(!u){ toast("Enter a web address that starts with http:// or https://"); f.elements.url.focus(); return; }
@@ -1160,7 +1179,8 @@ function makeAttacher(prefix, noun, pasteTarget){
   };
 }
 const cAtt=makeAttacher("att","comment",$("#c-text")), rAtt=makeAttacher("ratt","remark",$("#r-text"));
-function setAttUI(){ cAtt.ui(); rAtt.ui(); }
+var aAtt=makeAttacher("aatt","activity",$("#a-notes"));
+function setAttUI(){ cAtt.ui(); rAtt.ui(); aAtt.ui(); }
 const noPerm="Only people who can edit this School Task Monitor can attach files.";
 let editC=null, editR=null;
 function resetCommentForm(){
@@ -1354,7 +1374,7 @@ document.addEventListener("click",e=>{
   if(act==="del"){
     if(!b.classList.contains("armed")){ b.classList.add("armed"); b.textContent="Confirm delete"; setTimeout(()=>{ if(b.isConnected){ b.classList.remove("armed"); b.textContent="Delete"; } },3500); return; }
     if(b.dataset.col==="subjects" && assets){ const sj=subj(id); if(sj&&sj.teacherPhoto) assets.delete(sj.teacherPhoto).catch(()=>{}); }
-    if((b.dataset.col==="comments"||b.dataset.col==="remarks") && assets){ const c=state[b.dataset.col].find(x=>x.id===id); (Array.isArray(c&&c.attachments)?c.attachments:[]).forEach(a=>a&&a.id&&assets.delete(a.id).catch(()=>{})); }
+    if((b.dataset.col==="comments"||b.dataset.col==="remarks"||b.dataset.col==="activities") && assets){ const c=state[b.dataset.col].find(x=>x.id===id); (Array.isArray(c&&c.attachments)?c.attachments:[]).forEach(a=>a&&a.id&&assets.delete(a.id).catch(()=>{})); }
     del(b.dataset.col,id); toast("Deleted");
   } else if(act==="ctab"){ ctab=b.dataset.v; try{localStorage.setItem("cb-ctab",ctab);}catch{} renderComments(); }
   else if(act==="rmatt"){
@@ -1644,9 +1664,9 @@ function buildWorkbook(opts){
   const sheets=[{name:"Summary",header:false,widths:[30,22,12,12,12,12,12],rows:summary}];
   sheets.push({name:"Subjects",widths:[26,24,14,12,10],rows:[["Subject","Teacher","Teacher photo","Activities","Links"],
     ...state.subjects.map(s=>[s.name||"",s.teacher||"",s.teacherPhoto?"Yes":"No",acts.filter(a=>a.subjectId===s.id).length,state.links.filter(l=>l.subjectId===s.id).length])]});
-  sheets.push({name:"Activities",widths:[34,20,14,12,12,20,14,10,10,36,44,44],rows:[["Title","Subject","Status","Start date","End date","Deadline","Submitted on","On time","Grade","Submission link","Notes","Links"],
+  sheets.push({name:"Activities",widths:[34,20,14,12,12,20,14,10,10,36,44,44,36],rows:[["Title","Subject","Status","Start date","End date","Deadline","Submitted on","On time","Grade","Submission link","Notes","Links","Attachments"],
     ...[...acts].sort((a,b)=>(dl(a)||"9999").localeCompare(dl(b)||"9999")).map(a=>[a.title||"",sName(a.subjectId),ST[st(a)].t,D(a.start),D(dl(a)),st(a)==="submitted"?"":dueInfo(dl(a)).t,msD(a.submittedAt),onTime(a),a.grade||"",a.submissionUrl||"",a.notes||"",
-      state.links.filter(l=>l.activityId===a.id).map(l=>`${l.title||""} (${l.url||""})`).join("; ")])]});
+      state.links.filter(l=>l.activityId===a.id).map(l=>`${l.title||""} (${l.url||""})`).join("; "),attList(a.attachments)])]});
   sheets.push({name:"Links",widths:[32,48,20,30,12],rows:[["Title","Web address","Subject","Activity","Added on"],
     ...state.links.map(l=>[l.title||"",l.url||"",sName(l.subjectId),aTitle(l.activityId),msD(l.createdAt)])]});
   sheets.push({name:"Comments",widths:[12,20,30,64,40],rows:[["Date","Subject","Activity","Comment","Attachments"],
