@@ -342,6 +342,14 @@ body.readonly .grid{grid-template-columns:minmax(0,1fr)}
   <section id="sec-activities" data-sec="activities" hidden>
     <h2>Activities</h2>
     <p class="lede">Homework, projects and exams with their markings. Click a slice or a marking in the legend to show only those activities. Clicked the wrong marking? Use the buttons on each activity to set it right.</p>
+    <form class="gfilter" id="a-filters" autocomplete="off" role="search">
+      <span class="gf-title">Filter</span>
+      <label for="af-subject">Subject<select id="af-subject"><option value="">All subjects</option></select></label>
+      <label for="af-name">Activity<input id="af-name" type="search" maxlength="140" placeholder="Search titles and notes"></label>
+      <label for="af-from">From<input id="af-from" type="date"></label>
+      <label for="af-to">To<input id="af-to" type="date"></label>
+      <div class="formbtns"><button class="btn" type="submit">Apply</button><button type="button" class="ghost" id="af-clear">Clear</button></div>
+    </form>
     <div class="actlayout">
     <div class="dash">
       <svg id="pie" viewBox="0 0 200 200" role="img" aria-label="Pie chart of activities by marking"></svg>
@@ -358,16 +366,6 @@ body.readonly .grid{grid-template-columns:minmax(0,1fr)}
           <button data-act="sfilter" data-v="ongoing"><i style="background:var(--warn)"></i><span>Ongoing</span><span class="cnt" data-c>0 tasks</span><span class="pc" data-p>0%</span></button>
           <button data-act="sfilter" data-v="notcomplete"><i style="background:var(--bad)"></i><span>Not Started</span><span class="cnt" data-c>0 tasks</span><span class="pc" data-p>0%</span></button>
         </div>
-        <form class="afilters" id="a-filters" autocomplete="off" role="search">
-          <h3>Find activities</h3>
-          <label for="af-subject">Subject<select id="af-subject"><option value="">All subjects</option></select></label>
-          <label for="af-name">Activity name<input id="af-name" type="search" maxlength="140" placeholder="Search titles and notes"></label>
-          <div class="dates">
-            <label for="af-from">From<input id="af-from" type="date"></label>
-            <label for="af-to">To<input id="af-to" type="date"></label>
-          </div>
-          <div class="formbtns"><button class="btn" type="submit">Apply</button><button type="button" class="ghost" id="af-clear">Clear</button></div>
-        </form>
       </div>
     </div>
       <form class="panel w" id="f-activity" autocomplete="off">
