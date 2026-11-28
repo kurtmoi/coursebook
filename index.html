@@ -534,6 +534,16 @@ body.readonly .grid{grid-template-columns:minmax(0,1fr)}
 </main>
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 <div class="lightbox" id="lb" hidden role="dialog" aria-label="Photo viewer"><img alt=""></div>
+<div class="sheet" id="xl-lock" hidden role="dialog" aria-modal="true" aria-labelledby="xl-lock-title">
+  <div class="card" style="width:min(400px,100%)">
+    <h2 id="xl-lock-title">Enter the parent code</h2>
+    <p class="note2">Download Excel uses the same 4-digit code as Parents Monitoring.</p>
+    <form id="xl-pin-form" autocomplete="off" style="display:flex;flex-direction:column;gap:12px">
+      <label for="xl-pin">4-digit code<input id="xl-pin" class="pin" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="4" autocomplete="off"></label>
+      <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" type="submit">Download Excel</button><button type="button" class="ghost" id="xl-pin-cancel">Cancel</button></div>
+    </form>
+  </div>
+</div>
 <div class="sheet" id="install" hidden role="dialog" aria-modal="true" aria-labelledby="install-title">
   <div class="card">
     <h2 id="install-title">Install &amp; backup</h2>
@@ -1304,7 +1314,7 @@ document.addEventListener("click",e=>{
   if(im){ const lb=$("#lb"); lb.querySelector("img").src=im.src; lb.querySelector("img").alt=im.alt; lb.hidden=false; return; }
   if(e.target.closest("#lb")) $("#lb").hidden=true;
 });
-addEventListener("keydown",e=>{ if(e.key==="Escape"){ $("#lb").hidden=true; $("#install").hidden=true; } });
+addEventListener("keydown",e=>{ if(e.key==="Escape"){ $("#lb").hidden=true; $("#install").hidden=true; if(!$("#xl-lock").hidden) xlLockClose(); } });
 /* install and backup */
 const ua=navigator.userAgent||"";
 const NATIVE = !!(window.Capacitor && typeof window.Capacitor.isNativePlatform==="function" && window.Capacitor.isNativePlatform());
@@ -1736,7 +1746,7 @@ function buildWorkbook(){
   }
   return XL.book(sheets);
 }
-$("#xl-btn").addEventListener("click",async()=>{
+async function doExcel(){
   const btn=$("#xl-btn"); btn.disabled=true; btn.textContent="Preparing…";
   try{
     const blob=buildWorkbook(), name=`school-task-monitor-${todayStr()}.xlsx`;
@@ -1744,6 +1754,24 @@ $("#xl-btn").addEventListener("click",async()=>{
     if(msg) toast(msg);
   }catch(e){ toast("The Excel file couldn't be made. Try again."); }
   btn.disabled=false; btn.textContent="Download Excel";
+}
+/* Download Excel asks for the same code as Parents Monitoring */
+function xlLockClose(){ $("#xl-lock").hidden=true; $("#xl-pin").value=""; $("#xl-btn").focus(); }
+$("#xl-btn").addEventListener("click",()=>{
+  if(parentPin&&!pmUnlocked){ $("#xl-pin").value=""; $("#xl-lock").hidden=false; $("#xl-pin").focus(); return; }
+  doExcel();
+});
+$("#xl-pin-cancel").addEventListener("click",xlLockClose);
+$("#xl-pin-form").addEventListener("submit",async e=>{ e.preventDefault();
+  const pin=$("#xl-pin").value.trim();
+  if(!/^\d{4}$/.test(pin)){ toast("Enter the 4-digit parent code."); $("#xl-pin").focus(); return; }
+  if(Date.now()<pmWaitUntil){ toast(`Too many tries. Wait ${Math.ceil((pmWaitUntil-Date.now())/1000)} seconds.`); return; }
+  if(!parentPin||await pinHash(pin,parentPin.salt)!==parentPin.hash){
+    pmFails++; $("#xl-pin").value=""; $("#xl-pin").focus();
+    if(pmFails>=5){ pmFails=0; pmWaitUntil=Date.now()+30000; toast("Wrong code 5 times. Try again in 30 seconds."); } else toast("That code isn't right.");
+    return;
+  }
+  pmFails=0; $("#xl-lock").hidden=true; $("#xl-pin").value=""; doExcel();
 });
 /* parents monitoring: recovery email */
 let pmMailWait=0;
