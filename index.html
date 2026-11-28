@@ -1703,7 +1703,7 @@ function buildWorkbook(opts){
     const sa=acts.filter(a=>a.subjectId===s.id), c={notcomplete:0,ongoing:0,submitted:0}; sa.forEach(a=>c[st(a)]++);
     summary.push([s.name||"",s.teacher||"",sa.length,c.submitted,c.ongoing,c.notcomplete,{pct:sa.length?c.submitted/sa.length:0}]);
   }
-  summary.push([],[withJ?"Parents Journal is included because Parents Monitoring was unlocked.":"Parents Journal is not included. Unlock Parents Monitoring first to include it."]);
+  summary.push([],["See the Parents Monitoring sheet for the parents' overview"+(withJ?" and journal.":". Journal entries are added when Parents Monitoring is unlocked.")]);
   const sheets=[{name:"Summary",header:false,widths:[30,22,12,12,12,12,12],rows:summary}];
   sheets.push({name:"Subjects",widths:[26,24,14,12,10],rows:[["Subject","Teacher","Teacher photo","Activities","Links"],
     ...state.subjects.map(s=>[s.name||"",s.teacher||"",s.teacherPhoto?"Yes":"No",acts.filter(a=>a.subjectId===s.id).length,state.links.filter(l=>l.subjectId===s.id).length])]});
@@ -1716,8 +1716,25 @@ function buildWorkbook(opts){
     ...[...state.comments].sort((a,b)=>(a.createdAt||0)-(b.createdAt||0)).map(c=>[msD(c.createdAt),sName(c.subjectId),aTitle(c.activityId),c.text||"",attList(c.attachments)])]});
   sheets.push({name:"Teacher Remarks",widths:[14,20,22,30,16,8,64,40],rows:[["Date received","Subject","Teacher","Activity","Type","Done","Remark","Attachments"],
     ...[...state.remarks].sort((a,b)=>String(a.date||"").localeCompare(String(b.date||""))).map(r=>{ const s=subj(r.subjectId); return [D(r.date),s?s.name||"":"",s&&s.teacher||"",aTitle(r.activityId),(KIND[r.kind]||KIND.note).t,r.kind==="action"?(r.resolved?"Yes":"No"):"",r.text||"",attList(r.attachments)]; })]});
-  if(withJ) sheets.push({name:"Parents Journal",widths:[12,22,30,72],rows:[["Date","Subject","Related activity","Entry"],
-    ...[...state.journal].sort((a,b)=>String(a.date||"").localeCompare(String(b.date||""))).map(j=>[D(j.date),j.subjectId&&subj(j.subjectId)?sName(j.subjectId):(j.subjectText||""),aTitle(j.activityId),j.text||""])]});
+  {
+    const B=t=>({b:t}), soonD=new Date(); soonD.setDate(soonD.getDate()+7); const soon=ymd(soonD);
+    const sub=acts.filter(a=>st(a)==="submitted"), ot=sub.filter(a=>onTime(a)==="On time").length, late=sub.filter(a=>onTime(a)==="Late").length;
+    const pm=[[B("Parents Monitoring"+(ownerName?` of ${ownerName}`:""))],["Exported on",D(today)],[],
+      [B("Overview")],["Activities",acts.length],["Submitted",{pct:acts.length?n.submitted/acts.length:0}],["Ongoing",n.ongoing],["Not Started",n.notcomplete],["Overdue",overdue],["Submitted on time",ot],["Submitted late",late],[],
+      [B("Needs attention (overdue or ending in the next 7 days)")],[B("Activity"),B("Subject"),B("Status"),B("End date"),B("Deadline")]];
+    const attn=acts.filter(a=>st(a)!=="submitted"&&dl(a)&&dl(a)<=soon).sort((a,b)=>dl(a).localeCompare(dl(b)));
+    if(attn.length) attn.forEach(a=>pm.push([a.title||"",sName(a.subjectId),ST[st(a)].t,D(dl(a)),dueInfo(dl(a)).t])); else pm.push(["Nothing overdue or ending in the next 7 days."]);
+    pm.push([],[B("Submitted activities (newest first)")],[B("Activity"),B("Subject"),B("Submitted on"),B("On time"),B("Grade")]);
+    const rec=[...sub].sort((a,b)=>(b.submittedAt||0)-(a.submittedAt||0));
+    if(rec.length) rec.forEach(a=>pm.push([a.title||"",sName(a.subjectId),msD(a.submittedAt),onTime(a),a.grade||""])); else pm.push(["No submitted activities yet."]);
+    pm.push([],[B("Parents Journal")]);
+    if(withJ){
+      pm.push([B("Date"),B("Subject"),B("Related activity"),B("Entry")]);
+      const js=[...state.journal].sort((a,b)=>String(a.date||"").localeCompare(String(b.date||"")));
+      if(js.length) js.forEach(j=>pm.push([D(j.date),j.subjectId&&subj(j.subjectId)?sName(j.subjectId):(j.subjectText||""),aTitle(j.activityId),j.text||""])); else pm.push(["No journal entries yet."]);
+    } else pm.push(["The journal is private. Unlock Parents Monitoring with the parent code, then tap Download Excel again to include it."]);
+    sheets.push({name:"Parents Monitoring",header:false,widths:[34,22,30,50,18],rows:pm});
+  }
   return XL.book(sheets);
 }
 $("#xl-btn").addEventListener("click",async()=>{
