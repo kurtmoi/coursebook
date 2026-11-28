@@ -1684,8 +1684,7 @@ const XL=(()=>{
   }
   return {book};
 })();
-function buildWorkbook(opts){
-  const withJ=pmUnlocked && !(opts&&opts.noJournal);
+function buildWorkbook(){
   const sName=id=>{ const s=subj(id); return s?s.name||"":""; };
   const aTitle=id=>{ const a=id&&state.activities.find(x=>x.id===id); return a?a.title||"":""; };
   const ymd=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
@@ -1703,7 +1702,7 @@ function buildWorkbook(opts){
     const sa=acts.filter(a=>a.subjectId===s.id), c={notcomplete:0,ongoing:0,submitted:0}; sa.forEach(a=>c[st(a)]++);
     summary.push([s.name||"",s.teacher||"",sa.length,c.submitted,c.ongoing,c.notcomplete,{pct:sa.length?c.submitted/sa.length:0}]);
   }
-  summary.push([],["See the Parents Monitoring sheet for the parents' overview"+(withJ?" and journal.":". Journal entries are added when Parents Monitoring is unlocked.")]);
+  summary.push([],["See the Parents Monitoring sheet for the parents' overview and all journal notes."]);
   const sheets=[{name:"Summary",header:false,widths:[30,22,12,12,12,12,12],rows:summary}];
   sheets.push({name:"Subjects",widths:[26,24,14,12,10],rows:[["Subject","Teacher","Teacher photo","Activities","Links"],
     ...state.subjects.map(s=>[s.name||"",s.teacher||"",s.teacherPhoto?"Yes":"No",acts.filter(a=>a.subjectId===s.id).length,state.links.filter(l=>l.subjectId===s.id).length])]});
@@ -1728,11 +1727,11 @@ function buildWorkbook(opts){
     const rec=[...sub].sort((a,b)=>(b.submittedAt||0)-(a.submittedAt||0));
     if(rec.length) rec.forEach(a=>pm.push([a.title||"",sName(a.subjectId),msD(a.submittedAt),onTime(a),a.grade||""])); else pm.push(["No submitted activities yet."]);
     pm.push([],[B("Parents Journal")]);
-    if(withJ){
+    {
       pm.push([B("Date"),B("Subject"),B("Related activity"),B("Entry")]);
       const js=[...state.journal].sort((a,b)=>String(a.date||"").localeCompare(String(b.date||"")));
       if(js.length) js.forEach(j=>pm.push([D(j.date),j.subjectId&&subj(j.subjectId)?sName(j.subjectId):(j.subjectText||""),aTitle(j.activityId),j.text||""])); else pm.push(["No journal entries yet."]);
-    } else pm.push(["The journal is private. Unlock Parents Monitoring with the parent code, then tap Download Excel again to include it."]);
+    }
     sheets.push({name:"Parents Monitoring",header:false,widths:[34,22,30,50,18],rows:pm});
   }
   return XL.book(sheets);
@@ -1825,7 +1824,7 @@ async function fsWriteAll(){
   }
   for(const n of have) if(!keep.has(n)) try{ await att.removeEntry(n); }catch{}
   await fsWriteFile(fsDir,FS_DATA,JSON.stringify({app:"coursebook",version:1,format:"folder",exportedAt:new Date().toISOString(),data,files},null,1));
-  try{ await fsWriteFile(fsDir,FS_NAME+".xlsx",buildWorkbook({noJournal:true})); }catch{}
+  try{ await fsWriteFile(fsDir,FS_NAME+".xlsx",buildWorkbook()); }catch{}
   fsLast=Date.now();
 }
 async function fsFlush(){
